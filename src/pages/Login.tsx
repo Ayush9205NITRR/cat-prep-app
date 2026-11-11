@@ -33,12 +33,12 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const nextParam = new URLSearchParams(window.location.search).get('next')
   const next = nextParam && nextParam.startsWith('/oauth/authorize?') && !nextParam.includes('//') ? nextParam : null
   const signup = mode === 'signup'
-  const [google, setGoogle] = useState(false)
+  const [google, setGoogle] = useState<boolean | null>(null) // null = still checking
   // Google is the main way in; the password form is folded away (reviewers use it for the demo account).
   const [withPassword, setWithPassword] = useState(false)
 
   useEffect(() => {
-    fetch('/api/auth?action=providers').then((r) => r.json()).then((d) => setGoogle(Boolean(d.google)), () => {})
+    fetch('/api/auth?action=providers').then((r) => r.json()).then((d) => setGoogle(Boolean(d.google)), () => setGoogle(false))
     const err = new URLSearchParams(window.location.search).get('error')
     if (err) setError(GOOGLE_ERRORS[err] ?? 'Google sign-in failed. Try again.')
   }, [])
@@ -70,7 +70,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
             {next ? 'Log in to connect Claude to your account.' : 'Mocks, practice and notes. Claude reads your uploads, you check them here.'}
           </p>
         </div>
-        <form onSubmit={submit} className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-[0_1px_3px_rgba(16,24,40,0.06),0_8px_24px_-12px_rgba(16,24,40,0.12)]">
+        {google === null ? <div className="h-[132px] rounded-2xl border border-gray-200/70 bg-white/60" /> : <form onSubmit={submit} className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-[0_1px_3px_rgba(16,24,40,0.06),0_8px_24px_-12px_rgba(16,24,40,0.12)]">
           {google && (
             <a href={next ? `/api/google?next=${encodeURIComponent(next)}` : '/api/google'} className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]">
               <GoogleIcon /> Continue with Google
@@ -99,7 +99,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
               </button>
             </>
           )}
-        </form>
+        </form>}
         <p className="mt-4 text-center text-[11.5px] text-gray-400">Reviewer? Use a username and password: <b className="font-medium text-gray-500">demo</b></p>
       </div>
     </div>
