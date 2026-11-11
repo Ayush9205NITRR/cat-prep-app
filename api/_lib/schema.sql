@@ -148,3 +148,12 @@ CREATE TABLE IF NOT EXISTS note_files (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS note_files_note_idx ON note_files(note_id);
+
+-- FIXES round 1 (safe to re-run)
+ALTER TABLE mocks ADD COLUMN IF NOT EXISTS section TEXT CHECK (section IN ('Quant', 'VARC', 'DILR'));
+ALTER TABLE mocks ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'mock' CHECK (source IN ('mock', 'test', 'retest'));
+ALTER TABLE mocks ADD COLUMN IF NOT EXISTS topic TEXT;          -- a test from one topic
+ALTER TABLE mocks ADD COLUMN IF NOT EXISTS scope TEXT;          -- e.g. "Geometry" or "Quant", for the test name
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS practice_question_id INTEGER REFERENCES practice_questions(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS questions_pq_idx ON questions(practice_question_id);
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS fix_row_id INTEGER REFERENCES questions(id) ON DELETE SET NULL;  -- fix note → its question

@@ -31,7 +31,8 @@ export const NotePatch = z
 export const CardInput = Card
 export const CardPatch = Card.partial().strict()
 
-const N_COLS = 'id, topic, title, summary, formulas, click_type, source, kind, link_url, created_at'
+const N_COLS = `id, topic, title, summary, formulas, click_type, source, kind, link_url, fix_row_id, created_at,
+  (SELECT mock_id FROM questions WHERE id = notes.fix_row_id) AS fix_mock_id`
 const C_COLS = 'id, note_id, front, back, streak, to_char(due_on, \'YYYY-MM-DD\') AS due_on, reviews'
 
 export async function saveNotes(userId: number, x: z.infer<z.ZodObject<typeof NotesInput>>) {
@@ -57,6 +58,7 @@ export async function saveNotes(userId: number, x: z.infer<z.ZodObject<typeof No
 export async function listNotes(userId: number) {
   const notes = await q(
     `SELECT n.id, n.topic, n.title, n.click_type, n.kind, n.link_url, left(n.summary, 160) AS preview, n.created_at,
+       n.fix_row_id, (SELECT mock_id FROM questions WHERE id = n.fix_row_id) AS fix_mock_id,
        (SELECT nf.id FROM note_files nf WHERE nf.note_id = n.id ORDER BY nf.id LIMIT 1) AS file_id,
        (SELECT nf.mime FROM note_files nf WHERE nf.note_id = n.id ORDER BY nf.id LIMIT 1) AS file_mime,
        count(f.id)::int AS cards,
@@ -105,11 +107,13 @@ export async function updateCard(userId: number, id: number, patch: z.infer<type
 export const deleteCard = async (userId: number, id: number) =>
   (await q('DELETE FROM flashcards WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId])).length === 1
 
-export async function dueCards(userId: number) {
+export async function dueCards(userId: number, topic?: string) {
   return q(
-    `SELECT f.id, f.note_id, f.front, f.back, f.streak, to_char(f.due_on, 'YYYY-MM-DD') AS due_on, f.reviews, n.title, n.topic
-     FROM flashcards f JOIN notes n ON n.id = f.note_id WHERE f.user_id = $1 AND f.due_on <= ${TODAY} ORDER BY f.due_on, f.id`,
-    [userId],
+    `SELECT f.id, f.note_id, f.front, f.back, f.streak, to_char(f.due_on, 'YYYY-MM-DD') AS due_on, f.reviews, n.title, n.topic,
+       n.kind, n.fix_row_id, (SELECT mock_id FROM questions WHERE id = n.fix_row_id) AS fix_mock_id
+     FROM flashcards f JOIN notes n ON n.id = f.note_id
+     WHERE f.user_id = $1 AND f.due_on <= ${TODAY} AND ($2::text IS NULL OR n.topic = $2) ORDER BY f.due_on, f.id`,
+    [userId, topic ?? null],
   )
 }
 

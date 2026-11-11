@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CLICK_TYPES } from '../../shared/flashcards'
 import { AREAS, SCHEMA } from '../../shared/topics'
 import { api, type Card as CardT, type Note, type NoteFile } from '../api'
@@ -26,7 +26,7 @@ export default function NotePage() {
   useEffect(() => { api.note(id).then(setData, (e) => setError(e.message)) }, [id])
   if (!data) return error ? <ErrorNote>{error}</ErrorNote> : <Loading />
   const { note, cards, files = [] } = data
-  const k = KIND[kindOf({ kind: note.kind, file_mime: files[0]?.mime })]
+  const k = note.kind === 'fix' ? { label: 'Fix', icon: '🛠️', cls: 'bg-orange-50 text-orange-700' } : KIND[kindOf({ kind: note.kind, file_mime: files[0]?.mime })]
 
   const run = async (f: () => Promise<unknown>) => { setError(''); try { await f() } catch (e) { setError(`Not saved: ${(e as Error).message}`) } }
   const patch = (p: Partial<Note>) => run(async () => setData(await api.updateNote(id, p)))
@@ -35,19 +35,25 @@ export default function NotePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
-        <Back to="/notes">Notes</Back>
+        <Back to={`/topic/${encodeURIComponent(note.topic)}`}>{note.topic}</Back>
         <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${k.cls}`}>{k.icon} {k.label}</span>
       </div>
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      <div className={`rounded-xl border p-4 ${note.click_type ? 'border-gray-200 bg-white' : 'border-amber-300 bg-amber-50'}`}>
+      {note.kind === 'fix' && note.fix_mock_id && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-[13px] text-orange-900">
+          <span>🛠️ Fix note for a mistake in <b>{note.topic}</b>.</span>
+          <Link className="font-medium underline" to={`/mocks/${note.fix_mock_id}/review?row=${note.fix_row_id}`}>See the question</Link>
+        </div>
+      )}
+      {note.kind !== 'fix' && <div className={`rounded-xl border p-4 ${note.click_type ? 'border-gray-200 bg-white' : 'border-amber-300 bg-amber-50'}`}>
         <div className="mb-2 text-[13px] font-semibold text-gray-900">How did this click? {!note.click_type && <span className="font-normal text-amber-700">· one tap, required</span>}</div>
         <div className="flex flex-wrap gap-2">
           {CLICK_TYPES.map((c) => (
             <button key={c} onClick={() => patch({ click_type: c })} className={`rounded-full border px-3 py-1 text-[12px] font-medium capitalize ${note.click_type === c ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'}`}>{c}</button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {note.kind === 'link' && note.link_url && (
         <Card title="Link">
@@ -79,7 +85,7 @@ export default function NotePage() {
             </select>
           </div>
           <div>
-            <div className="mb-1 text-[12px] font-medium text-gray-700">{note.kind === 'summary' ? 'Summary' : note.kind === 'text' ? 'Text' : 'Your notes on this'}</div>
+            <div className="mb-1 text-[12px] font-medium text-gray-700">{note.kind === 'summary' ? 'Summary' : note.kind === 'text' ? 'Text' : note.kind === 'fix' ? 'Fix' : 'Your notes on this'}</div>
             <Field rows={note.kind === 'text' ? 12 : 6} value={note.summary} onSave={(summary) => patch({ summary })} />
           </div>
           <div>
@@ -108,7 +114,7 @@ export default function NotePage() {
         </div>
       </Card>
 
-      <button className="text-[12px] text-red-600 hover:underline" onClick={() => confirm('Delete this note and its cards?') && run(async () => { await api.deleteNote(id); nav('/notes') })}>Delete note</button>
+      <button className="text-[12px] text-red-600 hover:underline" onClick={() => confirm('Delete this note and its cards?') && run(async () => { await api.deleteNote(id); nav(`/topic/${encodeURIComponent(note.topic)}`) })}>Delete note</button>
     </div>
   )
 }

@@ -29,7 +29,7 @@ export default function QuestionEdit() {
   }
   async function remove() {
     if (!confirm('Delete this question and its attempts?')) return
-    await api.deletePracticeQuestion(id); nav('/practice')
+    await api.deletePracticeQuestion(id); nav(`/topic/${encodeURIComponent(q!.topic)}`)
   }
   const field = (label: string, el: React.ReactNode) => <label className="block"><span className="mb-1 block text-[12px] font-medium text-gray-700">{label}</span>{el}</label>
   const choiceList = (label: string, opts: string[], ans: number, onOpts: (o: string[]) => void, onAns: (n: number) => void, fixed3 = false) => (
@@ -52,7 +52,7 @@ export default function QuestionEdit() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
-        <Back to="/practice">Practice</Back>
+        <Back to={`/topic/${encodeURIComponent(q.topic)}`}>{q.topic}</Back>
         {q.source && <span className="text-[11px] text-gray-400">From: {q.source}</span>}
       </div>
       <Card title="Edit question">
@@ -75,7 +75,7 @@ export default function QuestionEdit() {
             <button className="text-[12px] text-red-600 hover:underline" onClick={remove}>Delete question</button>
             <div className="flex items-center gap-2">
               {saved && <span className="text-[12px] text-emerald-700">{saved}</span>}
-              <button className={btnGhost} onClick={() => nav(`/practice/session?topic=${encodeURIComponent(q.topic)}`)}>Practise topic</button>
+              <button className={btnGhost} onClick={() => nav(`/topic/${encodeURIComponent(q.topic)}`)}>Open topic</button>
               <button className={btnPrimary} onClick={save}>Save</button>
             </div>
           </div>

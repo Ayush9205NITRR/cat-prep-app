@@ -12,11 +12,12 @@ import google from '../api/google'
 import oauth from '../api/oauth'
 import practice from '../api/practice'
 import notes from '../api/notes'
+import topics from '../api/topics'
 
 // The api files are CommonJS (as on Vercel), so the default export can arrive wrapped.
 const unwrap = (m: any): Handler => (typeof m === 'function' ? m : m.default)
 const routes: Record<string, Handler> = Object.fromEntries(
-  Object.entries({ auth, mcp, mocks, questions, token, google, oauth, practice, notes }).map(([k, m]) => [k, unwrap(m)]),
+  Object.entries({ auth, mcp, mocks, questions, token, google, oauth, practice, notes, topics }).map(([k, m]) => [k, unwrap(m)]),
 )
 const port = Number(process.env.PORT ?? 3000)
 const vite = await createVite({ server: { middlewareMode: true }, appType: 'spa' })

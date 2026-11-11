@@ -1,7 +1,7 @@
 import type { QuestionRow } from '../shared/analysis'
 
 export interface User { id: number; username: string }
-export interface MockMeta { id: number; name: string; taken_on: string; has_time_data: boolean }
+export interface MockMeta { id: number; name: string; taken_on: string; has_time_data: boolean; section: string | null; source: 'mock' | 'test' | 'retest'; topic: string | null; scope: string | null }
 export interface MockSummary extends MockMeta { questions: number; score: number; reachable_score: number; max_score: number }
 export interface MockData { mock: MockMeta; rows: (QuestionRow & { id: number })[] }
 
@@ -21,14 +21,27 @@ export interface TopicHistory {
   errors: { A: number; B: number; C: number; not_tapped: number; repeats: number }
   history: (Attempt & { text: string; difficulty: string; ideal_seconds: number })[]
 }
-export type NoteKind = 'summary' | 'text' | 'link' | 'file'
+export type NoteKind = 'summary' | 'text' | 'link' | 'file' | 'fix'
 export interface NoteSummary {
   id: number; topic: string; title: string; click_type: string | null; cards: number; due: number
   kind: NoteKind; link_url: string | null; preview: string; file_id: number | null; file_mime: string | null
+  fix_row_id: number | null; fix_mock_id: number | null
 }
-export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string; kind: NoteKind; link_url: string | null }
+export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string; kind: NoteKind; link_url: string | null; fix_row_id: number | null; fix_mock_id: number | null }
 export interface NoteFile { id: number; name: string; mime: string; size: number }
 export interface Card { id: number; note_id: number; front: string; back: string; streak: number; due_on: string; reviews: number }
+
+export interface TopicStats { notes: number; questions: number; due: number; open: number; fixed: number; repeated: number; last_test: string | null }
+export interface MistakeItem {
+  status: 'Open' | 'Fixed' | 'Repeated'; error: 'A' | 'B' | 'C' | 'not reviewed' | null; times_wrong: number
+  row_id: number; mock_id: number; mock_name: string; text: string; options: string[]; chosen_index: number | null; correct_index: number
+  seconds: number | null; ideal_seconds: number; over_time: boolean; fix: { note_id: number; title: string; summary: string } | null
+}
+export interface TopicData {
+  topic: string; section: string; mistakes: MistakeItem[]; notes: NoteSummary[]; flashcards_due: number; retestable: number
+  questions: { id: number; difficulty: string; text: string; source: string; answered: number }[]
+}
+export type DueCard = Card & { title: string; topic: string; kind: string; fix_row_id: number | null; fix_mock_id: number | null }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
@@ -83,8 +96,17 @@ export const api = {
   createNote: (x: { topic: string; title?: string; content?: string; file?: { name: string; mime: string; base64: string } }) =>
     call<{ id: number; kind: string }>('POST', '/api/notes?view=create', x),
   fileUrl: (id: number) => `/api/notes?view=file&id=${id}`,
-  dueCards: () => call<{ cards: (Card & { title: string; topic: string })[] }>('GET', '/api/notes?view=due'),
+  dueCards: (topic?: string) => call<{ cards: DueCard[] }>('GET', `/api/notes?view=due${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),
   reviewCard: (id: number, right: boolean) => call<{ card: Card; due_in_days: number }>('POST', `/api/notes?view=review&id=${id}`, { right }),
+  // FIXES round 1
+  topicsSummary: () => call<{ topics: Record<string, TopicStats> }>('GET', '/api/topics?view=summary'),
+  topic: (t: string) => call<TopicData>('GET', `/api/topics?view=topic&topic=${encodeURIComponent(t)}`),
+  testQuestions: (scope: { section?: string; area?: string; topic?: string }, count: number) =>
+    call<{ questions: SolvingQuestion[] }>('GET', `/api/topics?view=test&count=${count}${Object.entries(scope).filter(([, v]) => v).map(([k, v]) => `&${k}=${encodeURIComponent(v!)}`).join('')}`),
+  retestQuestions: (topic?: string) => call<{ questions: SolvingQuestion[] }>('GET', `/api/topics?view=retest${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),
+  submitTest: (kind: 'test' | 'retest', scope: string, answers: { question_id: number; chosen_index: number | null; seconds: number }[]) =>
+    call<{ mock_id: number }>('POST', '/api/topics?view=submit', { kind, scope, answers }),
+  retestOutcome: (mockId: number) => call<{ retested: number; fixed: number; still_open: number }>('GET', `/api/topics?view=outcome&mock_id=${mockId}`),
   token: () => call<{ token: string; mcp_url: string }>('GET', '/api/token'),
   newToken: () => call<{ token: string; mcp_url: string }>('POST', '/api/token'),
 }

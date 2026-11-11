@@ -18,7 +18,7 @@ export default route(async (req, res) => {
   const ok = (x: unknown, code = 200) => void res.status(code).json(x)
 
   if (view === 'list' && m === 'GET') return ok(await listNotes(u.id))
-  if (view === 'due' && m === 'GET') return ok({ cards: await dueCards(u.id) })
+  if (view === 'due' && m === 'GET') return ok({ cards: await dueCards(u.id, one(req.query.topic) || undefined) })
 
   if (view === 'create' && m === 'POST') {
     const p = CreateNote.safeParse(req.body)

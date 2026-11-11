@@ -10,6 +10,7 @@ export const KIND = {
   link: { label: 'Link', icon: '🔗', cls: 'bg-sky-50 text-sky-700' },
   image: { label: 'Image', icon: '🖼️', cls: 'bg-violet-50 text-violet-700' },
   pdf: { label: 'PDF', icon: '📄', cls: 'bg-rose-50 text-rose-700' },
+  fix: { label: 'Fix', icon: '🛠️', cls: 'bg-orange-50 text-orange-700' },
 }
 export const kindOf = (n: { kind: string; file_mime?: string | null }) =>
   n.kind === 'file' ? (n.file_mime === 'application/pdf' ? 'pdf' : 'image') : (n.kind as keyof typeof KIND)

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { analyse, type QuestionRow } from '../../shared/analysis'
-import { TOPICS } from '../../shared/topics'
+import { majoritySection, SECTION_NAMES, TOPICS } from '../../shared/topics'
 import { db, q } from './db'
 
 // ---------- input shapes (shared by MCP and the REST API) ----------
@@ -28,6 +28,7 @@ export const MockInput = {
   name: z.string().min(1).max(200).describe('Mock name, e.g. "SimCAT 4"'),
   taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Date taken, YYYY-MM-DD'),
   has_time_data: z.boolean().describe('true if the report shows time per question'),
+  section: z.enum(SECTION_NAMES).optional().describe('Quant, VARC or DILR. Leave out to use the section most rows belong to'),
   rows: z.array(RowInput).min(1).max(200),
 }
 
@@ -46,12 +47,16 @@ export interface MockMeta {
   taken_on: string
   has_time_data: boolean
   created_at: string
+  section: string | null
+  source: 'mock' | 'test' | 'retest'
+  topic: string | null
+  scope: string | null
 }
 
-const MOCK_COLS = `id, name, to_char(taken_on, 'YYYY-MM-DD') AS taken_on, has_time_data, created_at`
+const MOCK_COLS = `id, name, to_char(taken_on, 'YYYY-MM-DD') AS taken_on, has_time_data, created_at, section, source, topic, scope`
 const Q_COLS = `id, q_no, topic, text, options, correct_index, chosen_index, seconds, ideal_seconds,
   type_options, type_answer, approach_options, approach_answer, solution_notes,
-  type_tap, approach_tap, resolve_index, resolve_seconds`
+  type_tap, approach_tap, resolve_index, resolve_seconds, practice_question_id`
 
 export async function listMocks(userId: number) {
   const mocks = await q<MockMeta>(`SELECT ${MOCK_COLS} FROM mocks WHERE user_id = $1 ORDER BY taken_on DESC, id DESC`, [userId])
@@ -75,26 +80,27 @@ export async function getMock(userId: number, mockId: number) {
 // ---------- writes ----------
 export async function createMock(
   userId: number,
-  m: { name: string; taken_on: string; has_time_data: boolean },
-  rows: (RowInput & Partial<Pick<QuestionRow, 'type_tap' | 'approach_tap' | 'resolve_index' | 'resolve_seconds'>>)[],
+  m: { name: string; taken_on: string; has_time_data: boolean; section?: string; source?: 'mock' | 'test' | 'retest'; topic?: string | null; scope?: string | null },
+  rows: (RowInput & Partial<Pick<QuestionRow, 'type_tap' | 'approach_tap' | 'resolve_index' | 'resolve_seconds'>> & { practice_question_id?: number | null })[],
 ): Promise<number> {
+  const section = m.section ?? majoritySection(rows.map((r) => r.topic))
   const client = await db().connect()
   try {
     await client.query('BEGIN')
     const { rows: [{ id }] } = await client.query(
-      'INSERT INTO mocks (user_id, name, taken_on, has_time_data) VALUES ($1, $2, $3, $4) RETURNING id',
-      [userId, m.name, m.taken_on, m.has_time_data],
+      'INSERT INTO mocks (user_id, name, taken_on, has_time_data, section, source, topic, scope) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+      [userId, m.name, m.taken_on, m.has_time_data, section, m.source ?? 'mock', m.topic ?? null, m.scope ?? null],
     )
     for (const r of rows) {
       await client.query(
         `INSERT INTO questions (mock_id, q_no, topic, text, options, correct_index, chosen_index, seconds, ideal_seconds,
            type_options, type_answer, approach_options, approach_answer, solution_notes,
-           type_tap, approach_tap, resolve_index, resolve_seconds)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+           type_tap, approach_tap, resolve_index, resolve_seconds, practice_question_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
         [id, r.q_no, r.topic, r.text, JSON.stringify(r.options), r.correct_index, r.chosen_index, r.seconds ?? null,
           r.ideal_seconds, JSON.stringify(r.type_options), r.type_answer, JSON.stringify(r.approach_options),
           r.approach_answer, r.solution_notes, r.type_tap ?? null, r.approach_tap ?? null, r.resolve_index ?? null,
-          r.resolve_seconds ?? null],
+          r.resolve_seconds ?? null, r.practice_question_id ?? null],
       )
     }
     await client.query('COMMIT')
@@ -112,6 +118,7 @@ export const MockPatch = z
     name: z.string().min(1).max(200),
     taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     has_time_data: z.boolean(),
+    section: z.enum(SECTION_NAMES),
   })
   .partial()
   .strict()

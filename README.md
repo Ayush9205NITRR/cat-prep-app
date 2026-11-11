@@ -3,6 +3,8 @@
 Claude reads what the student uploads and sends structured data to this app through MCP. The app stores it, lets the
 student edit everything, and runs the analysis with plain rules — there is no AI inside the app.
 
+- **Structure:** Quant · VARC · DILR → areas → topics. Each topic page is one home: Mistakes (Open · Fixed · Repeated, A/B/C, fix note), Notes, Practice (tests and retests), Flashcards.
+- **The loop:** take a test (5/10/15 questions, no feedback) → result page like a mock → in Claude “Analyse my last test”: `get_report` → two taps per wrong question (`tag_mistake`) → short explanation → `save_fix` (fix note + flashcard on the topic) → `start_retest` → a mistake answered right within its ideal time becomes **Fixed**; wrong again → **Repeated**.
 - **Mocks:** upload a mock report → “Analyse my mock” → editable table, score, reachable score, buckets, deficit, top 3 fixes; two-tap review (A/B/C) and timed re-solve.
 - **Practice:** a teacher’s question or an assignment PDF → “Save these for practice” → question sets by topic and difficulty, timed practice with no hints, A/B/C taps after a wrong answer, hints one at a time in review, repeat-error flag.
 - **New note (in the app):** one box — type or paste; a lone URL is saved as a link, anything else as text — or add a photo/screenshot/PDF (choose, drag, or paste from the clipboard; big photos are shrunk in the browser; files up to 3 MB, type checked by content). Stored as given; no AI in the app.
@@ -40,6 +42,11 @@ claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp -
 | `submit_answer` | Saves the attempt → correct or not. If wrong, returns the two tap questions; a second call with the taps returns A/B/C and whether it repeats an error |
 | `get_topic_history` | Last 20 attempts and errors for a topic |
 | `save_notes` | Summary, formulas and 5–8 flashcards for a topic |
+| `tag_mistake` | The two taps for a wrong/over-time question from `get_report`, in chat → A/B/C and repeat |
+| `save_fix` | Fix note on the topic, linked to the question (what went wrong, correct approach, rule); optional flashcard |
+| `start_retest` | Builds a test from the not-yet-fixed mistakes (same questions), for one topic or all; returns the app link |
+
+`save_mock` also takes `section` (Quant/VARC/DILR; default = the section most rows belong to). `get_report` without `mock_id` = the latest mock or test, and lists every wrong or over-time question with its `attempt_id` and tap options (not the answers).
 
 `topic` is an enum of the 38 fixed topics (7 areas), so Claude cannot invent topics. Wrong or missing token → 401
 with `WWW-Authenticate: Bearer resource_metadata=…` so OAuth clients find the sign-in.

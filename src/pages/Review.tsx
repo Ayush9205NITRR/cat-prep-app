@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ABC_LABEL, abcOf, bucketOf, needsReview, statusOf } from '../../shared/analysis'
 import { Back, btnGhost, btnPrimary, Card, ErrorNote, fmtSeconds, Loading, optionLabel } from '../ui'
 import { useMock } from '../useMock'
@@ -33,14 +33,16 @@ export default function Review() {
   const { data, error, patchRow } = useMock(id)
   const queue = useMemo(() => (data ? data.rows.filter((r) => needsReview(r, data.mock.has_time_data)) : []), [data])
   const [pos, setPos] = useState<number | null>(null)
+  const rowParam = Number(useSearchParams()[0].get('row')) || null
 
   // Start at the first question still waiting for taps.
   useEffect(() => {
     if (pos === null && data) {
+      const asked = rowParam ? queue.findIndex((r) => r.id === rowParam) : -1
       const first = queue.findIndex((r) => abcOf(r, data.mock.has_time_data) === 'pending')
-      setPos(Math.max(0, first))
+      setPos(Math.max(0, asked >= 0 ? asked : first))
     }
-  }, [data, queue, pos])
+  }, [data, queue, pos, rowParam])
 
   if (!data || pos === null) return error ? <ErrorNote>{error}</ErrorNote> : <Loading />
   const t = data.mock.has_time_data
