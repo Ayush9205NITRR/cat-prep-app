@@ -41,25 +41,37 @@ claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp -
 
 ## Deploy
 
-1. **Neon:** create a free project, copy the **pooled** connection string.
-2. **Vercel:** import this GitHub repo, set `DATABASE_URL` and `SESSION_SECRET` (any long random string), deploy.
-3. Nothing else to run: every Vercel build runs `db:migrate` (idempotent), `db:seed` (resets the demo account's sample mock; the demo token is printed in the build log) and then builds the UI.
-   To run them by hand instead:
-   ```bash
-   npm install
-   ```
-   ```bash
-   DATABASE_URL='<neon pooled url>' SESSION_SECRET='<same as on Vercel>' npm run db:migrate
-   ```
-   ```bash
-   DATABASE_URL='<neon pooled url>' SESSION_SECRET='<same as on Vercel>' npm run db:seed
-   ```
-   `SESSION_SECRET` must match Vercel's: the token is stored encrypted with it so the Connect page can show it.
-4. **Claude:** Settings → Connectors → Add custom connector → URL `https://<app>/api/mcp`, header `Authorization: Bearer <token>`.
+**Database: Neon (Lakebase Postgres), already set up.** Project `lucky-butterfly-77600910`, branch `production`
+(`aws-us-east-2`), linked by `neon init` and provisioned with `neon deploy` from `neon.ts` (Postgres only).
+To get the connection strings on your machine:
+
+```bash
+npm i -g neon@latest
+```
+```bash
+neon login
+```
+```bash
+neon env pull
+```
+
+That writes `DATABASE_URL` (pooled, used by the app) and `DATABASE_URL_UNPOOLED` (direct, used for migrations).
+
+**Vercel:** import this GitHub repo and set three environment variables:
+`DATABASE_URL`, `DATABASE_URL_UNPOOLED` (from `neon env pull` or the Neon console → Connect) and
+`SESSION_SECRET` (any long random string, e.g. `openssl rand -hex 32`). Deploy.
+
+Every Vercel build runs `db:migrate` (idempotent, over the direct URL), then `db:seed` (resets the demo account's
+sample mock; the demo token is printed in the build log), then builds the UI. `SESSION_SECRET` must stay the same
+between deploys: tokens are stored encrypted with it so the Connect page can show them.
+
+The app uses `pg` (node-postgres) with `attachDatabasePool` from `@vercel/functions`, as Neon recommends for Vercel.
+
+**Claude:** Settings → Connectors → Add custom connector → URL `https://<app>/api/mcp`, header `Authorization: Bearer <token>`.
 
 ## Local development
 
-Needs Node 20 and a Postgres database. Copy `.env.example` to `.env` and fill it in, then:
+Needs Node 20. Run `neon env pull` (or copy `.env.example` to `.env` and point it at any Postgres) and add `SESSION_SECRET`, then:
 
 ```bash
 npm install && npm run db:migrate && npm run db:seed
@@ -78,6 +90,7 @@ api/            Vercel Functions: mcp, auth, mocks, questions, token
 api/_lib/       DB, auth (bcrypt, signed cookie, token hash), data access, MCP server, schema.sql
 shared/         topics, config, analysis rules, sample mock (used by UI, API and tests)
 src/            React UI: Login, Mocks list, Mock page, Review, Re-solve, Connect Claude
-scripts/        migrate, seed, local dev server
+scripts/        migrate, seed, local dev server; neon-ws-preload (sandbox-only test shim, see the file)
+neon.ts         Neon services for this project (Postgres only)
 tests/          analysis unit tests
 ```
