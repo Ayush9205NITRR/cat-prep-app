@@ -71,7 +71,7 @@ The app uses `pg` (node-postgres) with `attachDatabasePool` from `@vercel/functi
 
 ## Local development
 
-Needs Node 20. Run `neon env pull` (or copy `.env.example` to `.env` and point it at any Postgres) and add `SESSION_SECRET`, then:
+Needs Node 22 or newer (Vercel builds with Node 26). Run `neon env pull` (or copy `.env.example` to `.env` and point it at any Postgres) and add `SESSION_SECRET`, then:
 
 ```bash
 npm install && npm run db:migrate && npm run db:seed
