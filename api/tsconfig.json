@@ -1,0 +1,17 @@
+{
+  // Vercel compiles each function with the tsconfig nearest to it. The root tsconfig targets
+  // the Vite UI (ES modules); the functions run on Node as CommonJS (package.json has no
+  // "type": "module"), so they need CommonJS output.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../shared/**/*.ts"]
+}
