@@ -17,19 +17,27 @@ const BUCKET_STYLE: Record<string, string> = {
   not_solved: 'bg-gray-100 text-gray-500',
 }
 
+/** A small ✓ next to a cell for 2 seconds after its save succeeds. */
+function useTick() {
+  const [on, setOn] = useState(false)
+  const run = async (p: unknown) => { if ((await p) !== false) { setOn(true); setTimeout(() => setOn(false), 2000) } }
+  return { on, run, el: <span aria-live="polite" className={`ml-1 inline-block w-3 text-[11px] font-bold text-emerald-600 transition-opacity ${on ? 'opacity-100' : 'opacity-0'}`} title="Saved">✓</span> }
+}
+
 /** Number cell: edits locally, saves on blur (or Enter). Empty = null where allowed. */
-function NumberCell({ value, nullable, min, onSave, label }: { value: number | null; nullable?: boolean; min: number; onSave: (v: number | null) => void; label: string }) {
+function NumberCell({ value, nullable, min, onSave, label }: { value: number | null; nullable?: boolean; min: number; onSave: (v: number | null) => unknown; label: string }) {
   const [text, setText] = useState(value === null ? '' : String(value))
+  const tick = useTick()
   useEffect(() => setText(value === null ? '' : String(value)), [value])
   function commit() {
     const t = text.trim()
-    if (t === '' && nullable) return value !== null && onSave(null)
+    if (t === '' && nullable) return value !== null && tick.run(onSave(null))
     const n = Number(t)
     if (!Number.isInteger(n) || n < min) return setText(value === null ? '' : String(value))
-    if (n !== value) onSave(n)
+    if (n !== value) tick.run(onSave(n))
   }
   return (
-    <input
+    <span className="inline-flex items-center"><input
       aria-label={label}
       className={cellNumber}
       inputMode="numeric"
@@ -38,30 +46,31 @@ function NumberCell({ value, nullable, min, onSave, label }: { value: number | n
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
+    />{tick.el}</span>
   )
 }
 
 /** Select cell: saves when it loses focus with a changed value. */
-function SelectCell({ value, onSave, children, label, className = '' }: { value: string; onSave: (v: string) => void; children: React.ReactNode; label: string; className?: string }) {
+function SelectCell({ value, onSave, children, label, className = '' }: { value: string; onSave: (v: string) => unknown; children: React.ReactNode; label: string; className?: string }) {
   const [v, setV] = useState(value)
+  const tick = useTick()
   useEffect(() => setV(value), [value])
   return (
-    <select
+    <span className="flex items-center"><select
       aria-label={label}
       className={`${cellSelect} ${className}`}
       value={v}
       onChange={(e) => {
         setV(e.target.value)
-        if (e.target.value !== value) onSave(e.target.value) // a pick is final, like a blur
+        if (e.target.value !== value) tick.run(onSave(e.target.value)) // a pick is final, like a blur
       }}
     >
       {children}
-    </select>
+    </select>{tick.el}</span>
   )
 }
 
-export default function EditableTable({ rows, hasTimeData, onPatch }: { rows: Row[]; hasTimeData: boolean; onPatch: (id: number, p: Partial<QuestionRow>) => void }) {
+export default function EditableTable({ rows, hasTimeData, onPatch }: { rows: Row[]; hasTimeData: boolean; onPatch: (id: number, p: Partial<QuestionRow>) => unknown }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[920px] text-[12px]">

@@ -28,6 +28,7 @@ function NoteCard({ n }: { n: NoteSummary }) {
           {n.due > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-700">{n.due} due</span>}
         </div>
         <div className="line-clamp-2 text-[14px] font-semibold leading-snug text-gray-900 group-hover:text-indigo-700">{n.title}</div>
+        {n.kind === 'file' && !n.file_read && <div className="mt-1 text-[11.5px] font-medium text-amber-700">Not read yet — ask Claude to read it</div>}
         {n.kind === 'link' ? (
           <div className="mt-1 truncate text-[12px] text-sky-700">{host(n.link_url)}</div>
         ) : n.preview ? (

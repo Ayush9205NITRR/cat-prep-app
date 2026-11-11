@@ -157,3 +157,16 @@ ALTER TABLE mocks ADD COLUMN IF NOT EXISTS scope TEXT;          -- e.g. "Geometr
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS practice_question_id INTEGER REFERENCES practice_questions(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS questions_pq_idx ON questions(practice_question_id);
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS fix_row_id INTEGER REFERENCES questions(id) ON DELETE SET NULL;  -- fix note → its question
+
+-- FIXES round 2 (safe to re-run)
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS file_read BOOLEAN NOT NULL DEFAULT false;  -- file notes: has Claude read it yet?
+CREATE TABLE IF NOT EXISTS note_versions (                                             -- previous text, kept by update_note
+  id          SERIAL PRIMARY KEY,
+  note_id     INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  summary     TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS note_versions_note_idx ON note_versions(note_id, id DESC);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS exam_date DATE;                              -- for get_profile

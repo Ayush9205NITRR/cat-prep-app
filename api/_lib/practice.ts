@@ -9,19 +9,19 @@ import { q } from './db'
 const three = z.array(z.string().min(1)).length(3)
 
 export const QuestionInput = {
-  topic: z.enum(TOPICS).describe('One topic from the allowed list'),
-  difficulty: z.enum(DIFFICULTIES).describe('easy, medium or hard'),
-  text: z.string().min(1).describe('Full question text'),
-  options: z.array(z.string()).min(2).max(10).describe('Answer options in order'),
-  correct_index: z.number().int().min(0).describe('Index into options of the correct answer'),
-  ideal_seconds: z.number().int().min(1).describe('Your estimate of the time a well-prepared student needs'),
-  type_options: three.describe('3 options for "Which type of question is this?"'),
-  type_answer: z.number().int().min(0).max(2).describe('Index of the right type option'),
-  approach_options: three.describe('3 options for "Which is the fastest approach?"'),
-  approach_answer: z.number().int().min(0).max(2).describe('Index of the fastest approach option'),
-  solution_notes: z.string().describe('Short worked solution'),
-  hints: z.array(z.string().min(1)).max(5).describe('1–3 hints, from gentle to strong. Shown one at a time, only in review'),
-  source: z.string().max(200).optional().describe('Where it came from, e.g. "Assignment 3 PDF, Q4"'),
+  topic: z.string().min(1).max(60).describe('A topic from the list in the instructions'),
+  difficulty: z.enum(DIFFICULTIES),
+  text: z.string().min(1),
+  options: z.array(z.string()).min(2).max(10),
+  correct_index: z.number().int().min(0),
+  ideal_seconds: z.number().int().min(1),
+  type_options: three,
+  type_answer: z.number().int().min(0).max(2),
+  approach_options: three,
+  approach_answer: z.number().int().min(0).max(2),
+  solution_notes: z.string(),
+  hints: z.array(z.string().min(1)).max(5).describe('1–3, gentle first'),
+  source: z.string().max(200).optional(),
 }
 const QuestionObject = z.object(QuestionInput)
 export type QuestionInput = z.infer<typeof QuestionObject>
@@ -75,6 +75,7 @@ export async function listQuestions(userId: number) {
 }
 
 export async function updateQuestion(userId: number, id: number, patch: z.infer<typeof QuestionPatch>) {
+  if (patch.topic !== undefined && !TOPICS.includes(patch.topic as any)) return { problems: ['Unknown topic'] }
   const cur = await getQuestion(userId, id)
   if (!cur) return null
   const merged = { ...cur, ...patch }

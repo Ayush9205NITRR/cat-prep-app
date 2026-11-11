@@ -24,6 +24,24 @@ function CopyField({ label, value, secret }: { label: string; value: string; sec
   )
 }
 
+/** The student's CAT date: Claude's get_profile uses it (days left). */
+function ExamDate() {
+  const [v, setV] = useState<string | null | undefined>(undefined)
+  const [saved, setSaved] = useState(false)
+  useEffect(() => { api.profile().then((r) => setV(r.exam_date ?? ''), () => setV('')) }, [])
+  if (v === undefined) return null
+  return (
+    <Card title="For Claude" aside="Used by get_profile">
+      <label className="flex flex-wrap items-center gap-3 text-[13px] text-gray-700">
+        Your CAT exam date
+        <input type="date" className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[13px]" value={v ?? ''}
+          onChange={async (e) => { setV(e.target.value); await api.setExamDate(e.target.value || null); setSaved(true); setTimeout(() => setSaved(false), 2000) }} />
+        {saved && <span className="text-[12px] font-medium text-emerald-700">✓ Saved</span>}
+      </label>
+    </Card>
+  )
+}
+
 export default function Connect() {
   const [data, setData] = useState<{ token: string; mcp_url: string } | null>(null)
   const [error, setError] = useState('')
@@ -58,6 +76,7 @@ export default function Connect() {
           </p>
         </div>
       </Card>
+      <ExamDate />
       <Card title="Connect claude.ai — 3 steps">
         <ol className="list-decimal space-y-3 pl-5 text-[13px] text-gray-800">
           <li>In Claude, open <b>Settings → Connectors → Add custom connector</b>.</li>

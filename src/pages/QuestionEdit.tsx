@@ -15,6 +15,9 @@ export default function QuestionEdit() {
   const [q, setQ] = useState<PracticeQuestion | null>(null)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
+  const [edit, setEdit] = useState(false)
+  const [orig, setOrig] = useState<PracticeQuestion | null>(null) // for Cancel
+  useEffect(() => { if (saved) { const t = setTimeout(() => setSaved(''), 2000); return () => clearTimeout(t) } }, [saved])
   useEffect(() => { api.practiceQuestion(id).then((r) => setQ(r.question), (e) => setError(e.message)) }, [id])
   if (!q) return error ? <ErrorNote>{error}</ErrorNote> : <Loading />
 
@@ -25,7 +28,7 @@ export default function QuestionEdit() {
       'approach_options', 'approach_answer', 'solution_notes', 'hints'] as const
     const cur = q!
     const patch = Object.fromEntries(keys.map((k) => [k, cur[k]])) as Partial<PracticeQuestion>
-    try { setQ((await api.updatePracticeQuestion(id, patch)).question); setSaved('Saved') } catch (e) { setError((e as Error).message) }
+    try { setQ((await api.updatePracticeQuestion(id, patch)).question); setSaved('✓ Saved'); setEdit(false) } catch (e) { setError((e as Error).message) }
   }
   async function remove() {
     if (!confirm('Delete this question and its attempts?')) return
@@ -55,6 +58,18 @@ export default function QuestionEdit() {
         <Back to={`/topic/${encodeURIComponent(q.topic)}`}>{q.topic}</Back>
         {q.source && <span className="text-[11px] text-gray-400">From: {q.source}</span>}
       </div>
+      {!edit ? (
+        <Card title={`${q.topic} · ${q.difficulty} · ideal ${q.ideal_seconds}s`} aside={<span className="flex items-center gap-3">{saved && <span className="font-medium text-emerald-700">{saved}</span>}<button className="text-[12.5px] font-medium text-indigo-700 hover:underline" onClick={() => { setOrig(q); setEdit(true) }}>Edit</button></span>}>
+          <p className="whitespace-pre-wrap text-[14px] text-gray-900">{q.text}</p>
+          <ul className="mt-3 space-y-1 text-[13px]">{q.options.map((o, i) => <li key={i} className={i === q.correct_index ? 'font-medium text-emerald-700' : 'text-gray-600'}>{optionLabel(i)} {o}{i === q.correct_index && ' — correct'}</li>)}</ul>
+          <div className="mt-3 grid gap-2 text-[12.5px] text-gray-600 sm:grid-cols-2">
+            <div><b className="text-gray-800">Type:</b> {q.type_options[q.type_answer]}</div>
+            <div><b className="text-gray-800">Fastest approach:</b> {q.approach_options[q.approach_answer]}</div>
+          </div>
+          {q.solution_notes && <div className="mt-3 rounded-lg bg-gray-50 p-3 text-[13px] whitespace-pre-wrap">{q.solution_notes}</div>}
+          {q.hints.length > 0 && <div className="mt-2 text-[12px] text-gray-500">{q.hints.length} hint{q.hints.length > 1 ? 's' : ''}</div>}
+        </Card>
+      ) : (
       <Card title="Edit question">
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -76,11 +91,13 @@ export default function QuestionEdit() {
             <div className="flex items-center gap-2">
               {saved && <span className="text-[12px] text-emerald-700">{saved}</span>}
               <button className={btnGhost} onClick={() => nav(`/topic/${encodeURIComponent(q.topic)}`)}>Open topic</button>
+              <button className={btnGhost} onClick={() => { if (orig) setQ(orig); setEdit(false) }}>Cancel</button>
               <button className={btnPrimary} onClick={save}>Save</button>
             </div>
           </div>
         </div>
       </Card>
+      )}
     </div>
   )
 }

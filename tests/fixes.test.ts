@@ -46,3 +46,17 @@ describe('mistake status', () => {
     expect(mistakesFrom([row({ chosen_index: 0, seconds: 99 })])[0].error).toBe('not reviewed')
   })
 })
+
+import { resolveTopic } from '../shared/topics'
+describe('topic names from Claude (Fix 10.1)', () => {
+  it('accepts exact and loosely written names', () => {
+    expect(resolveTopic('Time & Work')).toEqual({ topic: 'Time & Work' })
+    expect(resolveTopic('time and work')).toEqual({ topic: 'Time & Work' })
+    expect(resolveTopic('  reading   comprehension ')).toEqual({ topic: 'Reading Comprehension' })
+  })
+  it('suggests the 3 closest for a bad name', () => {
+    const r = resolveTopic('Trianglez') as { suggestions: string[] }
+    expect(r.suggestions).toHaveLength(3); expect(r.suggestions[0]).toBe('Triangles')
+    expect(resolveTopic('Profit and loss')).toEqual({ topic: 'Profit & Loss' })
+  })
+})

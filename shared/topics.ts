@@ -82,3 +82,22 @@ export function majoritySection(topics: string[]): Section {
   for (const t of topics) { const s = sectionOf(t); if (s) n.set(s, (n.get(s) ?? 0) + 1) }
   return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Quant'
 }
+
+// ---------- Topic names from Claude (FIXES round 2, Fix 10.1) ----------
+// Tools take `topic` as a plain string (the list is sent once, in the server instructions).
+// Exact or case/spacing-insensitive matches are accepted; otherwise the 3 closest names are suggested.
+const norm = (s: string) => s.toLowerCase().replace(/\band\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+  return d[a.length][b.length]
+}
+export function resolveTopic(input: string): { topic: Topic } | { suggestions: string[] } {
+  const n = norm(input)
+  const hit = TOPICS.find((t) => norm(t) === n)
+  if (hit) return { topic: hit }
+  const score = (t: string) => { const m = norm(t); return m.includes(n) || n.includes(m) ? -1 : distance(n, m) }
+  return { suggestions: [...TOPICS].sort((a, b) => score(a) - score(b)).slice(0, 3) }
+}

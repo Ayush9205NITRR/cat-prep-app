@@ -129,7 +129,7 @@ export async function saveFix(userId: number, x: { attempt_id: number; what_went
   if (!r) return null
   const oneLine = r.text.replace(/\s+/g, ' ').trim()
   const short = oneLine.length > 70 ? oneLine.slice(0, 67) + '…' : oneLine
-  const summary = `What went wrong\n${x.what_went_wrong.trim()}\n\nCorrect approach\n${x.correct_approach.trim()}\n\nRule to remember\n${x.rule_to_remember.trim()}`
+  const summary = `**What went wrong**\n${x.what_went_wrong.trim()}\n\n**Correct approach**\n${x.correct_approach.trim()}\n\n**Rule to remember**\n${x.rule_to_remember.trim()}`
   const client = await db().connect()
   try {
     await client.query('BEGIN')

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { requireUser } from './_lib/auth'
 import { fail, one, route } from './_lib/http'
 import {
-  addCard, CardInput, CreateNote, createNote, getFile, CardPatch, deleteCard, deleteNote, dueCards, getNote, listNotes, NotePatch, reviewCard, updateCard, updateNote,
+  addCard, CardInput, CreateNote, listVersions, restoreVersion, createNote, getFile, CardPatch, deleteCard, deleteNote, dueCards, getNote, listNotes, NotePatch, reviewCard, updateCard, updateNote,
 } from './_lib/notes'
 
 // GET ?view=list · GET|PATCH|DELETE ?view=note&id=N
@@ -19,6 +19,12 @@ export default route(async (req, res) => {
 
   if (view === 'list' && m === 'GET') return ok(await listNotes(u.id))
   if (view === 'due' && m === 'GET') return ok({ cards: await dueCards(u.id, one(req.query.topic) || undefined) })
+
+  if (view === 'versions' && m === 'GET') return ok({ versions: await listVersions(u.id, id) })
+  if (view === 'restore' && m === 'POST') {
+    const n = await restoreVersion(u.id, id, Number(one(req.query.version)))
+    return n ? ok(n) : fail(res, 404, 'Version not found')
+  }
 
   if (view === 'create' && m === 'POST') {
     const p = CreateNote.safeParse(req.body)

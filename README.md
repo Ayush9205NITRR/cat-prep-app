@@ -7,6 +7,8 @@ student edit everything, and runs the analysis with plain rules — there is no 
 - **The loop:** take a test (5/10/15 questions, no feedback) → result page like a mock → in Claude “Analyse my last test”: `get_report` → two taps per wrong question (`tag_mistake`) → short explanation → `save_fix` (fix note + flashcard on the topic) → `start_retest` → a mistake answered right within its ideal time becomes **Fixed**; wrong again → **Repeated**.
 - **Mocks:** upload a mock report → “Analyse my mock” → editable table, score, reachable score, buckets, deficit, top 3 fixes; two-tap review (A/B/C) and timed re-solve.
 - **Practice:** a teacher’s question or an assignment PDF → “Save these for practice” → question sets by topic and difficulty, timed practice with no hints, A/B/C taps after a wrong answer, hints one at a time in review, repeat-error flag.
+- **Edit everywhere:** every note, fix note, flashcard and saved question has Edit → Save/Cancel (“Saved” for 2 s). Notes are Markdown (headings, lists, tables), shown rendered. Mock table cells save on blur and show a ✓.
+- **+ Add on a topic:** Text, Link or File (image/PDF, stored in Postgres). Files show “Not read yet — ask Claude to read it” until Claude reads them (`get_note` → `mark_file_read`).
 - **New note (in the app):** one box — type or paste; a lone URL is saved as a link, anything else as text — or add a photo/screenshot/PDF (choose, drag, or paste from the clipboard; big photos are shrunk in the browser; files up to 3 MB, type checked by content). Stored as given; no AI in the app.
 - **Notes:** photo of lecture notes, a text dump or a transcript → “Make notes and flashcards” → topic page with summary, formulas and 5–8 flashcards; one required tap “How did this click?”; cards due on a 1, 2, 4, 8-day schedule (wrong → tomorrow).
 
@@ -42,9 +44,18 @@ claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp -
 | `submit_answer` | Saves the attempt → correct or not. If wrong, returns the two tap questions; a second call with the taps returns A/B/C and whether it repeats an error |
 | `get_topic_history` | Last 20 attempts and errors for a topic |
 | `save_notes` | Summary, formulas and 5–8 flashcards for a topic |
+| `next_mistake` | The next untagged wrong/slow question only (default: latest mock or test), with tap options and any saved solution or fix to reuse |
+| `save_questions` | Up to 50 questions in one call (`save_question` = one) |
+| `get_profile` | ≤150-word learner profile: exam date, weakest 3 topics, A/B/C mix, how they learn, open repeats, own rules |
+| `get_topic` | Compact topic view: note titles + first 300 characters, open mistakes, files (paged) |
+| `get_note` | One note in full, or an uploaded file (images come back as images) |
+| `update_note` | Rewrite a note's Markdown; the previous version is kept and can be restored in the app |
+| `mark_file_read` | Turn an uploaded file note into a read note with a summary and flashcards |
 | `tag_mistake` | The two taps for a wrong/over-time question from `get_report`, in chat → A/B/C and repeat |
 | `save_fix` | Fix note on the topic, linked to the question (what went wrong, correct approach, rule); optional flashcard |
 | `start_retest` | Builds a test from the not-yet-fixed mistakes (same questions), for one topic or all; returns the app link |
+
+Token budget (the student's Claude plan pays for every tool result): `topic` is a plain string in every tool, checked on the server (a bad name returns the 3 closest); the topic list is sent once in the server instructions; descriptions are one or two sentences; results are compact JSON with lists capped and paged by `next_cursor`. On the demo account `get_report` ≈ 1.4k characters, `next_mistake` ≈ 0.5k, `get_topic` ≤ 0.7k.
 
 `save_mock` also takes `section` (Quant/VARC/DILR; default = the section most rows belong to). `get_report` without `mock_id` = the latest mock or test, and lists every wrong or over-time question with its `attempt_id` and tap options (not the answers).
 

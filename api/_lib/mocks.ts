@@ -8,27 +8,27 @@ const idx = z.number().int().min(0)
 const three = z.array(z.string().min(1)).length(3)
 
 export const RowInput = z.object({
-  q_no: z.number().int().min(1).describe('Question number as printed in the mock'),
-  topic: z.enum(TOPICS).describe('One topic from the allowed list'),
-  text: z.string().min(1).describe('Full question text'),
-  options: z.array(z.string()).min(2).describe('Answer options in order. For a TITA question, put the correct value as the only correct option plus the student value if different'),
-  correct_index: idx.describe('Index into options of the correct answer'),
-  chosen_index: idx.nullable().describe("Index into options of the student's answer; null = skipped"),
-  seconds: z.number().int().min(0).nullable().optional().describe('Time the student spent, if the report has it'),
-  ideal_seconds: z.number().int().min(1).describe('Your estimate of the time a well-prepared student needs'),
-  type_options: three.describe('3 options for "Which type of question is this?"'),
-  type_answer: z.number().int().min(0).max(2).describe('Index of the right type option'),
-  approach_options: three.describe('3 options for "Which is the fastest approach?"'),
-  approach_answer: z.number().int().min(0).max(2).describe('Index of the fastest approach option'),
-  solution_notes: z.string().describe('Short worked solution'),
+  q_no: z.number().int().min(1),
+  topic: z.string().min(1).max(60).describe('A topic from the list in the instructions'),
+  text: z.string().min(1),
+  options: z.array(z.string()).min(2).describe('Options in order (TITA: the correct value, plus the student value if different)'),
+  correct_index: idx,
+  chosen_index: idx.nullable().describe('null = skipped'),
+  seconds: z.number().int().min(0).nullable().optional(),
+  ideal_seconds: z.number().int().min(1),
+  type_options: three.describe('Which type of question?'),
+  type_answer: z.number().int().min(0).max(2),
+  approach_options: three.describe('Fastest approach?'),
+  approach_answer: z.number().int().min(0).max(2),
+  solution_notes: z.string(),
 })
 export type RowInput = z.infer<typeof RowInput>
 
 export const MockInput = {
-  name: z.string().min(1).max(200).describe('Mock name, e.g. "SimCAT 4"'),
-  taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Date taken, YYYY-MM-DD'),
-  has_time_data: z.boolean().describe('true if the report shows time per question'),
-  section: z.enum(SECTION_NAMES).optional().describe('Quant, VARC or DILR. Leave out to use the section most rows belong to'),
+  name: z.string().min(1).max(200),
+  taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD'),
+  has_time_data: z.boolean(),
+  section: z.enum(SECTION_NAMES).optional().describe('Default: the section most rows belong to'),
   rows: z.array(RowInput).min(1).max(200),
 }
 

@@ -57,8 +57,10 @@ export default function TopicPage() {
   const nav = useNavigate()
   const [d, setD] = useState<TopicData | null>(null)
   const [error, setError] = useState('')
-  const [adding, setAdding] = useState(false)
-  useEffect(() => { setD(null); api.topic(topic).then(setD, (e) => setError(e.message)) }, [topic])
+  const [adding, setAdding] = useState<null | 'text' | 'link' | 'file'>(null)
+  const [menu, setMenu] = useState(false)
+  const load = () => api.topic(topic).then(setD, (e) => setError(e.message))
+  useEffect(() => { setD(null); load() }, [topic]) // eslint-disable-line react-hooks/exhaustive-deps
   if (error) return <ErrorNote>{error}</ErrorNote>
   if (!d) return <Loading />
   const section = sectionOf(topic)
@@ -69,6 +71,7 @@ export default function TopicPage() {
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="text-[12px] text-gray-500"><Link to={`/section/${section}`} className="hover:text-gray-900">{section}</Link> · {sectionAreaOf(topic)}</div>
         <h1 className="mt-0.5 text-[24px] font-semibold tracking-tight">{topic}</h1>
@@ -76,6 +79,19 @@ export default function TopicPage() {
           <span className="rounded-full bg-red-50 px-2.5 py-0.5 font-medium text-red-700">Open {open}</span>
           <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 font-medium text-emerald-700">Fixed {fixed}</span>
           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600">{d.notes.length} notes · {d.questions.length} questions</span>
+        </div>
+      </div>
+        <div className="relative">
+          <button className={btnPrimary} onClick={() => setMenu(!menu)} aria-expanded={menu}>+ Add</button>
+          {menu && (
+            <div className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg" onMouseLeave={() => setMenu(false)}>
+              {([['text', '📝', 'Text', 'Type or paste notes'], ['link', '🔗', 'Link', 'A web address'], ['file', '🖼️', 'File', 'Image or PDF']] as const).map(([m, icon, label, sub]) => (
+                <button key={m} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50" onClick={() => { setMenu(false); setAdding(m) }}>
+                  <span className="text-[16px]">{icon}</span><span><span className="block text-[13px] font-medium text-gray-900">{label}</span><span className="block text-[11px] text-gray-500">{sub}</span></span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -87,19 +103,26 @@ export default function TopicPage() {
       </Card>
 
       {/* 2. Notes */}
-      <Card title={`Notes · ${d.notes.length}`} aside={<button className="font-medium text-indigo-700 hover:underline" onClick={() => setAdding(true)}>+ New note</button>}>
-        {d.notes.length === 0 ? <p className="text-[12.5px] text-gray-500">No notes yet. Add one, or send lecture notes to Claude: “Make notes and flashcards”.</p> : (
+      <Card title={`Notes · ${d.notes.length}`}>
+        {d.notes.length === 0 ? <p className="text-[12.5px] text-gray-500">No notes yet. Use <b>+ Add</b> above, or send lecture notes to Claude: “Make notes and flashcards”.</p> : (
           <div className="grid gap-2 sm:grid-cols-2">
             {[...fixNotes, ...lectureNotes].map((n) => {
               const k = n.kind === 'fix' ? { label: 'Fix', icon: '🛠️', cls: 'bg-orange-50 text-orange-700' } : KIND[kindOf(n) as keyof typeof KIND]
               return (
-                <div key={n.id} className="rounded-xl border border-gray-100 p-3 hover:border-gray-200 hover:bg-gray-50/60">
+                <div key={n.id} className="overflow-hidden rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/60">
+                  {n.kind === 'file' && n.file_id && (n.file_mime?.startsWith('image/')
+                    ? <Link to={`/notes/${n.id}`}><img src={api.fileUrl(n.file_id)} alt="" loading="lazy" className="h-28 w-full object-cover" /></Link>
+                    : <Link to={`/notes/${n.id}`} className="flex h-16 items-center justify-center bg-rose-50 text-[26px]">📄</Link>)}
+                  <div className="p-3">
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-medium ${k.cls}`}>{k.icon} {k.label}</span>
                     {n.kind === 'fix' && n.fix_mock_id && <Link className="text-[11px] text-indigo-700 underline" to={`/mocks/${n.fix_mock_id}/review?row=${n.fix_row_id}`}>the question</Link>}
                   </div>
                   <Link to={`/notes/${n.id}`} className="line-clamp-2 text-[13px] font-medium text-gray-900 hover:text-indigo-700">{n.title}</Link>
+                  {n.kind === 'file' && !n.file_read && <div className="mt-1 text-[11.5px] font-medium text-amber-700">Not read yet — ask Claude to read it</div>}
+                  {n.kind === 'link' && n.link_url && <div className="mt-0.5 truncate text-[11.5px] text-sky-700">{n.link_url.replace(/^https?:\/\/(www\.)?/, '')}</div>}
                   {n.preview && n.kind !== 'link' && <div className="mt-0.5 line-clamp-2 whitespace-pre-line text-[11.5px] text-gray-500">{n.preview}</div>}
+                  </div>
                 </div>
               )
             })}
@@ -138,7 +161,7 @@ export default function TopicPage() {
         </div>
       </Card>
 
-      {adding && <NewNote onClose={() => setAdding(false)} defaultTopic={topic} />}
+      {adding && <NewNote mode={adding} defaultTopic={topic} onClose={() => setAdding(null)} onSaved={() => load()} />}
     </div>
   )
 }

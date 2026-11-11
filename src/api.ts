@@ -25,9 +25,9 @@ export type NoteKind = 'summary' | 'text' | 'link' | 'file' | 'fix'
 export interface NoteSummary {
   id: number; topic: string; title: string; click_type: string | null; cards: number; due: number
   kind: NoteKind; link_url: string | null; preview: string; file_id: number | null; file_mime: string | null
-  fix_row_id: number | null; fix_mock_id: number | null
+  fix_row_id: number | null; fix_mock_id: number | null; file_read: boolean
 }
-export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string; kind: NoteKind; link_url: string | null; fix_row_id: number | null; fix_mock_id: number | null }
+export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string; kind: NoteKind; link_url: string | null; fix_row_id: number | null; fix_mock_id: number | null; file_read: boolean }
 export interface NoteFile { id: number; name: string; mime: string; size: number }
 export interface Card { id: number; note_id: number; front: string; back: string; streak: number; due_on: string; reviews: number }
 
@@ -92,8 +92,12 @@ export const api = {
   deleteNote: (id: number) => call('DELETE', `/api/notes?view=note&id=${id}`),
   addCard: (noteId: number, front: string, back: string) => call<{ card: Card }>('POST', `/api/notes?view=card&note_id=${noteId}`, { front, back }),
   updateCard: (id: number, patch: Partial<Card>) => call<{ card: Card }>('PATCH', `/api/notes?view=card&id=${id}`, patch),
+  noteVersions: (id: number) => call<{ versions: { id: number; title: string; summary: string; created_at: string }[] }>('GET', `/api/notes?view=versions&id=${id}`),
+  restoreVersion: (id: number, version: number) => call<{ note: Note; cards: Card[]; files: NoteFile[] }>('POST', `/api/notes?view=restore&id=${id}&version=${version}`),
+  setExamDate: (exam_date: string | null) => call<{ exam_date: string | null }>('POST', '/api/auth?action=profile', { exam_date }),
+  profile: () => call<{ exam_date: string | null }>('GET', '/api/auth?action=profile'),
   deleteCard: (id: number) => call('DELETE', `/api/notes?view=card&id=${id}`),
-  createNote: (x: { topic: string; title?: string; content?: string; file?: { name: string; mime: string; base64: string } }) =>
+  createNote: (x: { topic: string; title?: string; content?: string; kind?: 'text'; file?: { name: string; mime: string; base64: string } }) =>
     call<{ id: number; kind: string }>('POST', '/api/notes?view=create', x),
   fileUrl: (id: number) => `/api/notes?view=file&id=${id}`,
   dueCards: (topic?: string) => call<{ cards: DueCard[] }>('GET', `/api/notes?view=due${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),

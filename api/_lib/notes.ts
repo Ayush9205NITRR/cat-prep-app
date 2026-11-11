@@ -10,12 +10,12 @@ const TODAY = `(now() AT TIME ZONE '${CONFIG.TIME_ZONE}')::date`
 const Card = z.object({ front: z.string().min(1).max(500), back: z.string().min(1).max(1000) })
 
 export const NotesInput = {
-  topic: z.enum(TOPICS).describe('One topic from the allowed list'),
-  title: z.string().min(1).max(200).describe('Short title, e.g. "Lecture 5: Circular tracks"'),
-  summary: z.string().min(1).max(5000).describe('Plain summary of the notes'),
-  formulas: z.array(z.string().min(1).max(300)).max(30).describe('Formulas, one per item'),
-  flashcards: z.array(Card).min(5).max(8).describe('5–8 cards: a question on the front, the answer on the back'),
-  source: z.string().max(200).optional().describe('e.g. "Photo of lecture notes, 12 Nov"'),
+  topic: z.string().min(1).max(60).describe('A topic from the list in the instructions'),
+  title: z.string().min(1).max(200),
+  summary: z.string().min(1).max(5000).describe('Markdown'),
+  formulas: z.array(z.string().min(1).max(300)).max(30),
+  flashcards: z.array(Card).min(5).max(8),
+  source: z.string().max(200).optional(),
 }
 export const NotePatch = z
   .object({
@@ -31,7 +31,7 @@ export const NotePatch = z
 export const CardInput = Card
 export const CardPatch = Card.partial().strict()
 
-const N_COLS = `id, topic, title, summary, formulas, click_type, source, kind, link_url, fix_row_id, created_at,
+const N_COLS = `id, topic, title, summary, formulas, click_type, source, kind, link_url, fix_row_id, file_read, created_at,
   (SELECT mock_id FROM questions WHERE id = notes.fix_row_id) AS fix_mock_id`
 const C_COLS = 'id, note_id, front, back, streak, to_char(due_on, \'YYYY-MM-DD\') AS due_on, reviews'
 
@@ -58,7 +58,7 @@ export async function saveNotes(userId: number, x: z.infer<z.ZodObject<typeof No
 export async function listNotes(userId: number) {
   const notes = await q(
     `SELECT n.id, n.topic, n.title, n.click_type, n.kind, n.link_url, left(n.summary, 160) AS preview, n.created_at,
-       n.fix_row_id, (SELECT mock_id FROM questions WHERE id = n.fix_row_id) AS fix_mock_id,
+       n.fix_row_id, n.file_read, (SELECT mock_id FROM questions WHERE id = n.fix_row_id) AS fix_mock_id,
        (SELECT nf.id FROM note_files nf WHERE nf.note_id = n.id ORDER BY nf.id LIMIT 1) AS file_id,
        (SELECT nf.mime FROM note_files nf WHERE nf.note_id = n.id ORDER BY nf.id LIMIT 1) AS file_mime,
        count(f.id)::int AS cards,
@@ -134,6 +134,7 @@ export const CreateNote = z.object({
   topic: z.enum(TOPICS),
   title: z.string().max(200).optional(),
   content: z.string().max(20000).optional(),
+  kind: z.enum(['text']).optional(), // "+ Add → Text": keep it text even if it is only a URL
   file: z.object({ name: z.string().min(1).max(200), mime: z.enum(FILE_TYPES), base64: z.string().min(1) }).optional(),
 })
 
@@ -147,7 +148,7 @@ export async function createNote(userId: number, x: z.infer<typeof CreateNote>) 
     if (!magicOk(bytes, x.file.mime)) return { problem: 'That file is not the type it says it is.' }
   } else if (detected === 'empty') return { problem: 'Type or paste something, or attach a file.' }
 
-  const kind = x.file ? 'file' : detected
+  const kind = x.file ? 'file' : x.kind === 'text' ? 'text' : detected
   const link = kind === 'link' ? normaliseUrl(content) : null
   const title = (x.title ?? '').trim() || autoTitle(kind, content, x.file?.name)
   const summary = kind === 'link' ? '' : content.trim()
@@ -183,4 +184,18 @@ function magicOk(b: Buffer, mime: string) {
 export async function getFile(userId: number, id: number) {
   const [f] = await q<{ name: string; mime: string; data: Buffer }>('SELECT name, mime, data FROM note_files WHERE id = $1 AND user_id = $2', [id, userId])
   return f ?? null
+}
+
+// ---------- previous versions (kept by update_note; the student can restore one) ----------
+export async function saveVersion(userId: number, noteId: number) {
+  await q('INSERT INTO note_versions (note_id, user_id, title, summary) SELECT id, user_id, title, summary FROM notes WHERE id = $1 AND user_id = $2', [noteId, userId])
+}
+export const listVersions = (userId: number, noteId: number) =>
+  q('SELECT id, title, summary, created_at FROM note_versions WHERE note_id = $1 AND user_id = $2 ORDER BY id DESC LIMIT 20', [noteId, userId])
+export async function restoreVersion(userId: number, noteId: number, versionId: number) {
+  const [v] = await q<{ title: string; summary: string }>('SELECT title, summary FROM note_versions WHERE id = $1 AND note_id = $2 AND user_id = $3', [versionId, noteId, userId])
+  if (!v) return null
+  await saveVersion(userId, noteId) // the current text becomes a version too, so a restore can be undone
+  await q('UPDATE notes SET title = $3, summary = $4 WHERE id = $1 AND user_id = $2', [noteId, userId, v.title, v.summary])
+  return getNote(userId, noteId)
 }
