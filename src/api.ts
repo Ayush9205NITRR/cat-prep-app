@@ -18,7 +18,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    if (res.status === 401 && path !== '/api/auth?action=login') window.dispatchEvent(new Event('logged-out'))
+    if (res.status === 401 && !path.startsWith('/api/auth?action=')) window.dispatchEvent(new Event('logged-out'))
     throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`)
   }
   return data as T
@@ -27,6 +27,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 export const api = {
   me: () => call<{ user: User }>('GET', '/api/auth'),
   login: (username: string, password: string) => call<{ user: User }>('POST', '/api/auth?action=login', { username, password }),
+  signup: (username: string, password: string) => call<{ user: User }>('POST', '/api/auth?action=signup', { username, password }),
   logout: () => call('POST', '/api/auth?action=logout'),
   mocks: () => call<{ mocks: MockSummary[] }>('GET', '/api/mocks'),
   mock: (id: number) => call<MockData>('GET', `/api/mocks?id=${id}`),

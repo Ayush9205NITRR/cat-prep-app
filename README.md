@@ -5,6 +5,7 @@ question and sends it to this app through MCP. The mock appears in the app, wher
 wrong answers with two taps, and re-solve skipped questions. The analysis is plain rules — there is no AI inside the app.
 
 - Live app: `https://<your-app>.vercel.app`
+- Students: open the app and click **Create account** (username + password). Each student gets their own token and only sees their own mocks.
 - Test login: **demo** / **catprep-demo-2026**
 - MCP URL: `https://<your-app>.vercel.app/api/mcp` with header `Authorization: Bearer <token>` (token on the Connect page)
 
@@ -42,7 +43,8 @@ claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp -
 
 1. **Neon:** create a free project, copy the **pooled** connection string.
 2. **Vercel:** import this GitHub repo, set `DATABASE_URL` and `SESSION_SECRET` (any long random string), deploy.
-3. Run migrations and the seed once from your machine (prints the demo password and token):
+3. Nothing else to run: every Vercel build runs `db:migrate` (idempotent), `db:seed` (resets the demo account's sample mock; the demo token is printed in the build log) and then builds the UI.
+   To run them by hand instead:
    ```bash
    npm install
    ```

@@ -1,8 +1,17 @@
 import { z } from 'zod'
-import { checkLogin, clearSession, requireUser, setSession } from './_lib/auth'
+import { checkLogin, clearSession, createUser, requireUser, setSession } from './_lib/auth'
 import { fail, one, route } from './_lib/http'
 
-// GET /api/auth → current user · POST /api/auth?action=login · POST /api/auth?action=logout
+export const SignupInput = z.object({
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9_.-]{3,30}$/, 'Username: 3–30 characters, letters, numbers, dot, dash or underscore'),
+  password: z.string().min(8, 'Password: at least 8 characters').max(200),
+})
+
+// GET /api/auth → current user · POST /api/auth?action=login | signup | logout
 export default route(async (req, res) => {
   const action = one(req.query.action)
   if (req.method === 'GET') {
@@ -14,6 +23,15 @@ export default route(async (req, res) => {
   if (action === 'logout') {
     clearSession(res)
     res.status(200).json({ ok: true })
+    return
+  }
+  if (action === 'signup') {
+    const body = SignupInput.safeParse(req.body)
+    if (!body.success) return fail(res, 400, body.error.issues[0].message)
+    const u = await createUser(body.data.username, body.data.password)
+    if (!u) return fail(res, 409, 'That username is taken')
+    setSession(req, res, u.id)
+    res.status(201).json({ user: u })
     return
   }
   if (action !== 'login') return fail(res, 400, 'Unknown action')

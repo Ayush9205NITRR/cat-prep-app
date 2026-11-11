@@ -32,6 +32,17 @@ export async function checkLogin(username: string, password: string): Promise<Us
   return (await bcrypt.compare(password, u.password_hash)) ? { id: u.id, username: u.username } : null
 }
 
+/** Creates an account with a fresh MCP token. Returns null if the username is taken. */
+export async function createUser(username: string, password: string): Promise<User | null> {
+  const t = newToken()
+  const [u] = await q<User>(
+    `INSERT INTO users (username, password_hash, token_hash, token_enc) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (username) DO NOTHING RETURNING id, username`,
+    [username, await hashPassword(password), hashToken(t), encryptToken(t)],
+  )
+  return u ?? null
+}
+
 // ---------- session cookie: "<userId>.<expires>.<hmac>" ----------
 const sign = (data: string) => crypto.createHmac('sha256', secret()).update(data).digest('base64url')
 
