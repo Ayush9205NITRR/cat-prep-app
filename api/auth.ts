@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { checkLogin, clearSession, createUser, requireUser, setSession } from './_lib/auth'
+import { googleConfigured } from './_lib/google'
 import { fail, one, route } from './_lib/http'
 
 export const SignupInput = z.object({
@@ -7,13 +8,17 @@ export const SignupInput = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9_.-]{3,30}$/, 'Username: 3–30 characters, letters, numbers, dot, dash or underscore'),
+    .regex(/^[a-z0-9_.@+-]{3,60}$/, 'Username: 3–60 characters: letters, numbers, or . _ - @ + (an email works)'),
   password: z.string().min(8, 'Password: at least 8 characters').max(200),
 })
 
-// GET /api/auth → current user · POST /api/auth?action=login | signup | logout
+// GET /api/auth → current user · GET /api/auth?action=providers · POST /api/auth?action=login | signup | logout
 export default route(async (req, res) => {
   const action = one(req.query.action)
+  if (req.method === 'GET' && action === 'providers') {
+    res.status(200).json({ google: googleConfigured() })
+    return
+  }
   if (req.method === 'GET') {
     const u = await requireUser(req, res)
     if (u) res.status(200).json({ user: u })

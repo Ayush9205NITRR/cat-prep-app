@@ -5,7 +5,7 @@ question and sends it to this app through MCP. The mock appears in the app, wher
 wrong answers with two taps, and re-solve skipped questions. The analysis is plain rules — there is no AI inside the app.
 
 - Live app: `https://<your-app>.vercel.app`
-- Students: open the app and click **Create account** (username + password). Each student gets their own token and only sees their own mocks.
+- Students: open the app and click **Continue with Google**, or **Create account** (username or email + password). Each student gets their own token and only sees their own mocks.
 - Test login: **demo** / **catprep-demo-2026**
 - MCP URL: `https://<your-app>.vercel.app/api/mcp` with header `Authorization: Bearer <token>` (token on the Connect page)
 
@@ -69,6 +69,13 @@ The app uses `pg` (node-postgres) with `attachDatabasePool` from `@vercel/functi
 
 **Claude:** Settings → Connectors → Add custom connector → URL `https://<app>/api/mcp`, header `Authorization: Bearer <token>`.
 
+**Google sign-in (optional).** In Google Cloud Console: create a project → APIs & Services → OAuth consent screen
+(External; app name; your email) and **Publish app** so any Google account can sign in → Credentials → Create
+credentials → OAuth client ID → Web application, with the authorised redirect URI `https://<app>/api/google`.
+Put the client ID and secret in Vercel as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` and redeploy. The button
+appears once both are set. A Google login with an email that a password account already uses as its username gets
+its own new account; it never takes over the existing one.
+
 ## Local development
 
 Needs Node 22 or newer (Vercel builds with Node 26). Run `neon env pull` (or copy `.env.example` to `.env` and point it at any Postgres) and add `SESSION_SECRET`, then:
@@ -86,7 +93,7 @@ npm test
 ## Layout
 
 ```
-api/            Vercel Functions: mcp, auth, mocks, questions, token
+api/            Vercel Functions: mcp, auth, google, mocks, questions, token
 api/_lib/       DB, auth (bcrypt, signed cookie, token hash), data access, MCP server, schema.sql
 shared/         topics, config, analysis rules, sample mock (used by UI, API and tests)
 src/            React UI: Login, Mocks list, Mock page, Review, Re-solve, Connect Claude

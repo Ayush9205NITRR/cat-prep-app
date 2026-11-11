@@ -39,3 +39,8 @@ CREATE TABLE IF NOT EXISTS questions (
   resolve_seconds  INTEGER
 );
 CREATE INDEX IF NOT EXISTS questions_mock_idx ON questions(mock_id, q_no);
+
+-- Google sign-in (added later; safe to re-run)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT UNIQUE;  -- Google account id ("sub")
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;        -- Google-only users have no password

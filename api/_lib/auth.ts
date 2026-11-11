@@ -21,24 +21,28 @@ function secret(): string {
 export const hashPassword = (pw: string) => bcrypt.hash(pw, 10)
 
 export async function checkLogin(username: string, password: string): Promise<User | null> {
-  const [u] = await q<{ id: number; username: string; password_hash: string }>(
+  const [u] = await q<{ id: number; username: string; password_hash: string | null }>(
     'SELECT id, username, password_hash FROM users WHERE username = $1',
     [username.trim().toLowerCase()],
   )
-  if (!u) {
+  if (!u || !u.password_hash) {
     await bcrypt.compare(password, '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinva') // same timing
     return null
   }
-  return (await bcrypt.compare(password, u.password_hash)) ? { id: u.id, username: u.username } : null
+  return (await bcrypt.compare(password, u.password_hash!)) ? { id: u.id, username: u.username } : null
 }
 
 /** Creates an account with a fresh MCP token. Returns null if the username is taken. */
-export async function createUser(username: string, password: string): Promise<User | null> {
+export async function createUser(
+  username: string,
+  password: string | null,
+  google?: { sub: string; email: string },
+): Promise<User | null> {
   const t = newToken()
   const [u] = await q<User>(
-    `INSERT INTO users (username, password_hash, token_hash, token_enc) VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (username, password_hash, token_hash, token_enc, google_sub, email) VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (username) DO NOTHING RETURNING id, username`,
-    [username, await hashPassword(password), hashToken(t), encryptToken(t)],
+    [username, password === null ? null : await hashPassword(password), hashToken(t), encryptToken(t), google?.sub ?? null, google?.email ?? null],
   )
   return u ?? null
 }
