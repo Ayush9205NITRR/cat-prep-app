@@ -8,6 +8,11 @@ import { baseUrl, type Req, type Res } from './http'
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const STATE_COOKIE = 'g_state'
+const NEXT_COOKIE = 'g_next'
+/** Only the OAuth consent page may be a post-login target (no open redirect). */
+export const safeNext = (n: unknown) => (typeof n === 'string' && n.startsWith('/oauth/authorize?') && !n.includes('//') ? n : null)
+const readCookie = (req: Req, name: string) =>
+  (req.headers.cookie ?? '').split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1)
 
 export const googleConfigured = () => Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 
@@ -23,10 +28,13 @@ function redirect(res: Res, to: string) {
 }
 
 /** Step 1: send the browser to Google with a one-time state value (CSRF protection). */
-export function startGoogle(req: Req, res: Res) {
+export function startGoogle(req: Req, res: Res, next?: string) {
   if (!googleConfigured()) return redirect(res, '/login?error=google_off')
   const state = crypto.randomBytes(24).toString('base64url')
-  res.setHeader('Set-Cookie', `${STATE_COOKIE}=${state}; HttpOnly; Path=/api/google; SameSite=Lax; Max-Age=600${secure(req)}`)
+  const cookies = [`${STATE_COOKIE}=${state}; HttpOnly; Path=/api/google; SameSite=Lax; Max-Age=600${secure(req)}`]
+  const n = safeNext(next)
+  cookies.push(`${NEXT_COOKIE}=${n ? encodeURIComponent(n) : ''}; HttpOnly; Path=/api/google; SameSite=Lax; Max-Age=${n ? 600 : 0}${secure(req)}`)
+  res.setHeader('Set-Cookie', cookies)
   const url = new URL(AUTH_URL)
   url.search = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -54,8 +62,13 @@ interface IdClaims {
  * without checking the signature), then log in or create the account.
  */
 export async function finishGoogle(req: Req, res: Res, code: string, state: string) {
-  const cookieState = (req.headers.cookie ?? '').split(/;\s*/).find((c) => c.startsWith(`${STATE_COOKIE}=`))?.slice(STATE_COOKIE.length + 1)
-  res.setHeader('Set-Cookie', `${STATE_COOKIE}=; HttpOnly; Path=/api/google; SameSite=Lax; Max-Age=0`)
+  const cookieState = readCookie(req, STATE_COOKIE)
+  const rawNext = readCookie(req, NEXT_COOKIE)
+  const next = safeNext(rawNext ? decodeURIComponent(rawNext) : null)
+  res.setHeader('Set-Cookie', [
+    `${STATE_COOKIE}=; HttpOnly; Path=/api/google; SameSite=Lax; Max-Age=0`,
+    `${NEXT_COOKIE}=; HttpOnly; Path=/api/google; SameSite=Lax; Max-Age=0`,
+  ])
   const a = Buffer.from(state)
   const b = Buffer.from(cookieState ?? '')
   if (!googleConfigured() || !cookieState || a.length !== b.length || !crypto.timingSafeEqual(a, b))
@@ -88,7 +101,7 @@ export async function finishGoogle(req: Req, res: Res, code: string, state: stri
 
   const { user, isNew } = await userForGoogle(claims.sub, claims.email!.toLowerCase())
   setSession(req, res, user.id)
-  redirect(res, isNew ? '/connect' : '/')
+  redirect(res, next ?? (isNew ? '/connect' : '/'))
 }
 
 /** Finds the account for this Google id, or creates one named after the email. */

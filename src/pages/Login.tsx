@@ -29,6 +29,9 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
   const from = (useLocation().state as any)?.from ?? '/'
+  // Set when Claude's connector sent the student here to log in before clicking Allow.
+  const nextParam = new URLSearchParams(window.location.search).get('next')
+  const next = nextParam && nextParam.startsWith('/oauth/authorize?') && !nextParam.includes('//') ? nextParam : null
   const signup = mode === 'signup'
   const [google, setGoogle] = useState(false)
 
@@ -44,6 +47,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
     setError('')
     try {
       const r = signup ? await api.signup(username, password) : await api.login(username, password)
+      if (next) return window.location.assign(next) // server page: full load
       onLogin(r.user)
       navigate(signup ? '/connect' : from === '/login' ? '/' : from, { replace: true })
     } catch (err) {
@@ -58,11 +62,13 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
       <form onSubmit={submit} className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="text-[18px] font-semibold tracking-tight">CAT Prep</div>
         <div className="mb-5 text-[12px] text-gray-500">
-          {signup ? 'Create your account. Then connect Claude and send it your first mock.' : 'Mock analysis. Claude reads your mock, you check it here.'}
+          {next
+            ? 'Log in to connect Claude to your CAT Prep account.'
+            : signup ? 'Create your account. Then connect Claude and send it your first mock.' : 'Mock analysis. Claude reads your mock, you check it here.'}
         </div>
         {google && (
           <>
-            <a href="/api/google" className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white py-2 text-[13px] font-medium text-gray-800 hover:bg-gray-50">
+            <a href={next ? `/api/google?next=${encodeURIComponent(next)}` : '/api/google'} className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white py-2 text-[13px] font-medium text-gray-800 hover:bg-gray-50">
               <GoogleIcon /> Continue with Google
             </a>
             <div className="my-4 flex items-center gap-3 text-[11px] text-gray-400">

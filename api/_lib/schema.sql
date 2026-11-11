@@ -44,3 +44,28 @@ CREATE INDEX IF NOT EXISTS questions_mock_idx ON questions(mock_id, q_no);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT UNIQUE;  -- Google account id ("sub")
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;        -- Google-only users have no password
+
+-- OAuth for MCP clients such as claude.ai custom connectors (added later; safe to re-run)
+CREATE TABLE IF NOT EXISTS oauth_clients (      -- registered by the client itself (RFC 7591)
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  redirect_uris JSONB NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS oauth_codes (        -- one-time authorization codes, 10 minutes
+  code_hash      TEXT PRIMARY KEY,
+  client_id      TEXT NOT NULL REFERENCES oauth_clients(id) ON DELETE CASCADE,
+  user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  redirect_uri   TEXT NOT NULL,
+  code_challenge TEXT NOT NULL,
+  expires_at     TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS oauth_tokens (       -- access and refresh tokens, stored as SHA-256
+  token_hash  TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('access', 'refresh')),
+  client_id   TEXT NOT NULL REFERENCES oauth_clients(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS oauth_tokens_user_idx ON oauth_tokens(user_id);

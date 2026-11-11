@@ -16,5 +16,5 @@ export default route(async (req, res) => {
     return
   }
   if (code && state) return finishGoogle(req, res, code, state)
-  startGoogle(req, res)
+  startGoogle(req, res, one(req.query.next))
 })

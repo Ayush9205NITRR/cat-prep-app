@@ -53,23 +53,22 @@ export default function Connect() {
           <CopyField label="MCP server URL" value={data.mcp_url} />
           <CopyField label="Your token" value={data.token} secret />
           <p className="text-[11px] text-gray-500">
-            The token is like a password for your data. It goes in a header, never in the URL.{' '}
+            Only needed for Claude Code or MCP Inspector. It is like a password for your data: it goes in a header, never in the URL.{' '}
             <button className="underline" onClick={regenerate}>Make a new token</button>
           </p>
         </div>
       </Card>
-      <Card title="3 steps">
+      <Card title="Connect claude.ai — 3 steps">
         <ol className="list-decimal space-y-3 pl-5 text-[13px] text-gray-800">
           <li>In Claude, open <b>Settings → Connectors → Add custom connector</b>.</li>
-          <li>Name it <b>CAT Prep</b> and paste the <b>MCP server URL</b> above.</li>
-          <li>
-            Add the header <code className="rounded bg-gray-100 px-1">Authorization</code> with the value{' '}
-            <code className="rounded bg-gray-100 px-1">Bearer &lt;your token&gt;</code>, then save and turn the connector on in a chat.
-          </li>
+          <li>Name it <b>CAT Prep</b>, paste the <b>MCP server URL</b> above, and click <b>Add</b>. Leave the advanced settings empty.</li>
+          <li>Click <b>Connect</b>, log in to CAT Prep if asked, and click <b>Allow</b>. Then turn the connector on in a chat.</li>
         </ol>
+        <p className="mt-3 text-[12px] text-gray-500">No token to copy: Claude signs in for you. Disconnect any time in Claude’s connector settings.</p>
         <div className="mt-4 rounded-lg bg-gray-50 p-3 text-[12px] text-gray-600">
-          <div className="mb-1 font-medium text-gray-800">Using Claude Code instead?</div>
-          <code className="block break-all text-[11px]">
+          <div className="mb-1 font-medium text-gray-800">Claude Code or MCP Inspector instead?</div>
+          Use the token above as a header:
+          <code className="mt-1 block break-all text-[11px]">
             claude mcp add --transport http cat-prep {data.mcp_url} --header "Authorization: Bearer &lt;your token&gt;"
           </code>
         </div>

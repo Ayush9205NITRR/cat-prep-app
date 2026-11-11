@@ -48,17 +48,23 @@ export async function createUser(
 }
 
 // ---------- session cookie: "<userId>.<expires>.<hmac>" ----------
+/** Adds a Set-Cookie header without dropping ones already set on this response. */
+export function addCookie(res: Res, cookie: string) {
+  const prev = res.getHeader('Set-Cookie')
+  res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [String(prev)] : []), cookie])
+}
+
 const sign = (data: string) => crypto.createHmac('sha256', secret()).update(data).digest('base64url')
 
 export function setSession(req: Req, res: Res, userId: number) {
   const exp = Math.floor(Date.now() / 1000) + MAX_AGE_S
   const data = `${userId}.${exp}`
   const secure = (req.headers['x-forwarded-proto'] ?? '').toString().startsWith('https') ? '; Secure' : ''
-  res.setHeader('Set-Cookie', `${COOKIE}=${data}.${sign(data)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${MAX_AGE_S}${secure}`)
+  addCookie(res, `${COOKIE}=${data}.${sign(data)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${MAX_AGE_S}${secure}`)
 }
 
 export function clearSession(res: Res) {
-  res.setHeader('Set-Cookie', `${COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`)
+  addCookie(res, `${COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`)
 }
 
 function sessionUserId(req: Req): number | null {
@@ -73,10 +79,16 @@ function sessionUserId(req: Req): number | null {
   return Number(id)
 }
 
-/** Returns the logged-in user, or sends 401 and returns null. */
-export async function requireUser(req: Req, res: Res): Promise<User | null> {
+/** The logged-in user from the session cookie, or null. */
+export async function currentUser(req: Req): Promise<User | null> {
   const id = sessionUserId(req)
   const [u] = id ? await q<User>('SELECT id, username FROM users WHERE id = $1', [id]) : []
+  return u ?? null
+}
+
+/** Returns the logged-in user, or sends 401 and returns null. */
+export async function requireUser(req: Req, res: Res): Promise<User | null> {
+  const u = await currentUser(req)
   if (!u) {
     fail(res, 401, 'Not logged in')
     return null
@@ -117,9 +129,20 @@ export async function rotateToken(userId: number): Promise<string> {
   return t
 }
 
+/**
+ * MCP auth. Accepts the user's personal token (tok_…, from the Connect page; for Claude Code and
+ * MCP Inspector) or an OAuth access token (oat_…, issued to claude.ai connectors by /oauth/token).
+ */
 export async function userFromBearer(header: string | undefined): Promise<User | null> {
-  const m = /^Bearer\s+(tok_[A-Za-z0-9]{32})\s*$/.exec(header ?? '')
+  const m = /^Bearer\s+((tok|oat)_[A-Za-z0-9_-]{32,64})\s*$/.exec(header ?? '')
   if (!m) return null
-  const [u] = await q<User>('SELECT id, username FROM users WHERE token_hash = $1', [hashToken(m[1])])
+  const [u] =
+    m[2] === 'tok'
+      ? await q<User>('SELECT id, username FROM users WHERE token_hash = $1', [hashToken(m[1])])
+      : await q<User>(
+          `SELECT u.id, u.username FROM oauth_tokens t JOIN users u ON u.id = t.user_id
+           WHERE t.token_hash = $1 AND t.kind = 'access' AND t.expires_at > now()`,
+          [hashToken(m[1])],
+        )
   return u ?? null
 }

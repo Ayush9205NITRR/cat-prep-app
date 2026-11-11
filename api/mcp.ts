@@ -2,13 +2,15 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { userFromBearer } from './_lib/auth'
 import { baseUrl, route } from './_lib/http'
 import { buildMcpServer } from './_lib/mcp-server'
+import { resourceMetadataUrl } from './_lib/oauth'
 
 // Stateless Streamable HTTP: a new server and transport for every request.
 export default route(async (req, res) => {
   const user = await userFromBearer(req.headers.authorization)
   if (!user) {
-    res.setHeader('WWW-Authenticate', 'Bearer')
-    res.status(401).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Missing or wrong token. Send Authorization: Bearer <token> from the Connect page.' }, id: null })
+    // Points OAuth clients (claude.ai connectors) to the sign-in; header clients just send a token.
+    res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl(req)}"`)
+    res.status(401).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Missing or wrong token. Connect through claude.ai (OAuth) or send Authorization: Bearer <token> from the Connect page.' }, id: null })
     return
   }
   if (req.method !== 'POST') {
