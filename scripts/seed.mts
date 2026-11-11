@@ -6,6 +6,7 @@ import { SAMPLE_MOCK, SAMPLE_ROWS } from '../shared/sample-mock'
 import { SAMPLE_NOTE, SAMPLE_PRACTICE } from '../shared/sample-practice'
 import { saveQuestion } from '../api/_lib/practice'
 import { saveNotes } from '../api/_lib/notes'
+import { REVIEWER, seedReviewer } from './reviewer.mjs'
 
 // The reviewer test account. Runs on every production deploy: it resets the password, keeps the
 // token (--new-token makes a new one) and keeps the sample mock, so its id and links stay the same.
@@ -35,11 +36,16 @@ if (!nq) for (const x of SAMPLE_PRACTICE) await saveQuestion(user.id, x as any)
 const [note] = await q<{ id: number }>('SELECT id FROM notes WHERE user_id = $1 AND title = $2', [user.id, SAMPLE_NOTE.title])
 const noteId = note ? note.id : await saveNotes(user.id, SAMPLE_NOTE as any)
 
+const rev = await seedReviewer(process.argv.includes('--reset-reviewer'))
+
 console.log(`Demo account ready
   username: ${USERNAME}
   password: ${PASSWORD}
   MCP token: ${token}
   sample mock id: ${mockId}${existing ? ' (kept)' : ' (created)'}
   sample practice questions: ${nq ? 'kept' : SAMPLE_PRACTICE.length + ' created'}
-  sample note id: ${noteId}${note ? ' (kept)' : ' (created)'}`)
+  sample note id: ${noteId}${note ? ' (kept)' : ' (created)'}
+Reviewer account ${rev.created ? 'created with the full sample loop' : 'kept (its data is not reset; --reset-reviewer rebuilds it)'}
+  username: ${REVIEWER.username}
+  password: ${REVIEWER.password}`)
 await db().end()

@@ -70,6 +70,7 @@ export const api = {
   mocks: () => call<{ mocks: MockSummary[] }>('GET', '/api/mocks'),
   mock: (id: number) => call<MockData>('GET', `/api/mocks?id=${id}`),
   updateMock: (id: number, patch: Partial<MockMeta>) => call<MockData>('PATCH', `/api/mocks?id=${id}`, patch),
+  deleteMock: (id: number) => call('DELETE', `/api/mocks?id=${id}`),
   updateQuestion: (id: number, patch: Partial<QuestionRow>) =>
     call<{ row: QuestionRow & { id: number } }>('PATCH', `/api/questions?id=${id}`, patch),
   // Tier 2

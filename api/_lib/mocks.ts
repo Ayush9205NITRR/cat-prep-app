@@ -167,3 +167,8 @@ export async function updateQuestion(userId: number, questionId: number, patch: 
   const [row] = await q<QuestionRow>(`SELECT ${Q_COLS} FROM questions WHERE id = $1`, [questionId])
   return { row }
 }
+
+/** Deletes a mock or test with its rows. Fix notes stay on their topic (their link to the question is cleared). */
+export async function deleteMock(userId: number, mockId: number) {
+  return (await q('DELETE FROM mocks WHERE id = $1 AND user_id = $2 RETURNING id', [mockId, userId])).length === 1
+}

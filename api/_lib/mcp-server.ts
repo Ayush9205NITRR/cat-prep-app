@@ -7,7 +7,7 @@ import type { User } from './auth'
 import { markFileRead, nextMistake, noteFull, oneLine, page, profile, rewriteNote, topicDigest, type Include } from './claude'
 import { q } from './db'
 import { createMock, getMock, MockInput, rowProblems } from './mocks'
-import { NotesInput, saveNotes } from './notes'
+import { NotesInput, saveNotes, updateCard } from './notes'
 import { forSolving, nextQuestion, problems, QuestionInput, saveQuestion, setTaps, submitAnswer, topicHistory } from './practice'
 import { FixInput, prepareRetest, saveFix, tagMistake } from './topics'
 
@@ -268,6 +268,16 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
   }, async ({ note_id, title, body }) => {
     const r = await rewriteNote(user.id, note_id, body, title)
     return r ? text({ ...r, note_link: `${appUrl}/notes/${note_id}` }) : error(`No note ${note_id} for this account.`)
+  })
+
+  server.registerTool('update_card', {
+    title: 'Edit a flashcard',
+    description: 'Change a flashcard’s front and/or back (card ids come from get_note). Its review schedule is kept.',
+    inputSchema: { card_id: z.number().int().min(1), front: z.string().min(1).max(500).optional(), back: z.string().min(1).max(1000).optional() },
+  }, async ({ card_id, front, back }) => {
+    if (front === undefined && back === undefined) return error('Send front, back or both.')
+    const c = await updateCard(user.id, card_id, { ...(front !== undefined ? { front } : {}), ...(back !== undefined ? { back } : {}) })
+    return c ? text({ card_id, front: oneLine(c.front, 80), back: oneLine(c.back, 80), due_on: c.due_on }) : error(`No card ${card_id} for this account.`)
   })
 
   server.registerTool('mark_file_read', {

@@ -14,6 +14,7 @@ student edit everything, and runs the analysis with plain rules — there is no 
 
 - Live app: `https://<your-app>.vercel.app`
 - Students: open the app and click **Continue with Google**. Username + password is folded under “Use a username and password instead” (reviewers use it for `demo`). Each student gets their own token and only sees their own mocks.
+- **Reviewer login: `reviewer` / `cat-review-2026`** — the whole loop already done once: a Quant mock and a VARC sectional, a Time & Work test with a mistake tagged B, its fix note and flashcard, a retest that turned it **Fixed**, an open Probability mistake to retest, notes (one with a table), practice questions in Quant, VARC and DILR, and cards due. Created on the first production deploy; later deploys keep reviewers' changes (`npm run db:seed -- --reset-reviewer` rebuilds it).
 - Test login: **demo** / **catprep-demo-2026** (has a sample mock, 6 practice questions in 2 topics and a sample note with flashcards)
 - MCP URL: `https://<your-app>.vercel.app/api/mcp` — add it in Claude and click Connect (OAuth sign-in). Claude Code: header `Authorization: Bearer <token>` (token on the Connect page)
 
@@ -50,6 +51,7 @@ claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp -
 | `get_topic` | Compact topic view: note titles + first 300 characters, open mistakes, files (paged) |
 | `get_note` | One note in full, or an uploaded file (images come back as images) |
 | `update_note` | Rewrite a note's Markdown; the previous version is kept and can be restored in the app |
+| `update_card` | Edit a flashcard's front/back (ids from `get_note`); its review schedule is kept |
 | `mark_file_read` | Turn an uploaded file note into a read note with a summary and flashcards |
 | `tag_mistake` | The two taps for a wrong/over-time question from `get_report`, in chat → A/B/C and repeat |
 | `save_fix` | Fix note on the topic, linked to the question (what went wrong, correct approach, rule); optional flashcard |

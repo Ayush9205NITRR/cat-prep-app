@@ -78,8 +78,9 @@ export async function noteFull(userId: number, id: number) {
     'SELECT id, topic, kind, title, summary, formulas, link_url, file_read FROM notes WHERE id = $1 AND user_id = $2', [id, userId])
   if (!n) return null
   const [f] = n.kind === 'file' ? await q<{ name: string; mime: string; data: Buffer }>('SELECT name, mime, data FROM note_files WHERE note_id = $1 ORDER BY id LIMIT 1', [id]) : []
-  const cards = await q<{ n: number }>('SELECT count(*)::int AS n FROM flashcards WHERE note_id = $1', [id])
-  return { note: { ...n, flashcards: cards[0].n }, file: f ?? null }
+  // Card ids so Claude can fix one with update_card (short text, capped).
+  const cards = await q<{ id: number; front: string; back: string }>('SELECT id, front, back FROM flashcards WHERE note_id = $1 ORDER BY id LIMIT 10', [id])
+  return { note: { ...n, flashcards: cards.map((c) => ({ id: c.id, front: oneLine(c.front, 80), back: oneLine(c.back, 80) })) }, file: f ?? null }
 }
 
 // ---------- update_note: rewrite, keeping the previous version ----------

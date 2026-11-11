@@ -1,6 +1,6 @@
 import { requireUser } from './_lib/auth'
 import { fail, one, route } from './_lib/http'
-import { getMock, listMocks, MockPatch, updateMock } from './_lib/mocks'
+import { deleteMock, getMock, listMocks, MockPatch, updateMock } from './_lib/mocks'
 
 // GET /api/mocks → list · GET /api/mocks?id=N → one mock with rows · PATCH /api/mocks?id=N → name/date/time flag
 export default route(async (req, res) => {
@@ -23,5 +23,6 @@ export default route(async (req, res) => {
     res.status(200).json(await getMock(u.id, id))
     return
   }
+  if (req.method === 'DELETE') return (await deleteMock(u.id, id)) ? void res.status(200).json({ ok: true }) : fail(res, 404, 'Mock not found')
   fail(res, 405, 'Method not allowed')
 })

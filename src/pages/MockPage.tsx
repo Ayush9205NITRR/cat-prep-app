@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { analyse } from '../../shared/analysis'
 import EditableTable from '../components/EditableTable'
 import ReportPanel from '../components/ReportPanel'
@@ -38,6 +38,7 @@ function RetestOutcome({ id }: { id: number }) {
 export default function MockPage() {
   const id = Number(useParams().id)
   const { data, error, saving, patchRow, patchMock } = useMock(id)
+  const nav = useNavigate()
   const report = useMemo(() => data && analyse(data.rows, data.mock.has_time_data), [data])
 
   if (!data || !report) return error ? <ErrorNote>{error}</ErrorNote> : <Loading />
@@ -72,6 +73,13 @@ export default function MockPage() {
       </Card>
 
       <ReportPanel report={report} mockId={id} />
+
+      <div className="flex justify-end">
+        <button className="text-[12.5px] text-red-600 hover:underline" onClick={async () => {
+          if (!confirm(`Delete “${mock.name}” and all its ${rows.length} questions? This cannot be undone. Fix notes stay on their topics.`)) return
+          await api.deleteMock(id); nav('/mocks', { replace: true })
+        }}>Delete this {mock.source === 'mock' ? 'mock' : 'test'}</button>
+      </div>
     </div>
   )
 }
