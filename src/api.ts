@@ -21,8 +21,13 @@ export interface TopicHistory {
   errors: { A: number; B: number; C: number; not_tapped: number; repeats: number }
   history: (Attempt & { text: string; difficulty: string; ideal_seconds: number })[]
 }
-export interface NoteSummary { id: number; topic: string; title: string; click_type: string | null; cards: number; due: number }
-export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string }
+export type NoteKind = 'summary' | 'text' | 'link' | 'file'
+export interface NoteSummary {
+  id: number; topic: string; title: string; click_type: string | null; cards: number; due: number
+  kind: NoteKind; link_url: string | null; preview: string; file_id: number | null; file_mime: string | null
+}
+export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string; kind: NoteKind; link_url: string | null }
+export interface NoteFile { id: number; name: string; mime: string; size: number }
 export interface Card { id: number; note_id: number; front: string; back: string; streak: number; due_on: string; reviews: number }
 
 export class ApiError extends Error {
@@ -69,12 +74,15 @@ export const api = {
   history: (topic: string) => call<TopicHistory>('GET', `/api/practice?view=history&topic=${encodeURIComponent(topic)}`),
   // Tier 3
   notes: () => call<{ notes: NoteSummary[]; due: number }>('GET', '/api/notes?view=list'),
-  note: (id: number) => call<{ note: Note; cards: Card[] }>('GET', `/api/notes?view=note&id=${id}`),
-  updateNote: (id: number, patch: Partial<Note>) => call<{ note: Note; cards: Card[] }>('PATCH', `/api/notes?view=note&id=${id}`, patch),
+  note: (id: number) => call<{ note: Note; cards: Card[]; files: NoteFile[] }>('GET', `/api/notes?view=note&id=${id}`),
+  updateNote: (id: number, patch: Partial<Note>) => call<{ note: Note; cards: Card[]; files: NoteFile[] }>('PATCH', `/api/notes?view=note&id=${id}`, patch),
   deleteNote: (id: number) => call('DELETE', `/api/notes?view=note&id=${id}`),
   addCard: (noteId: number, front: string, back: string) => call<{ card: Card }>('POST', `/api/notes?view=card&note_id=${noteId}`, { front, back }),
   updateCard: (id: number, patch: Partial<Card>) => call<{ card: Card }>('PATCH', `/api/notes?view=card&id=${id}`, patch),
   deleteCard: (id: number) => call('DELETE', `/api/notes?view=card&id=${id}`),
+  createNote: (x: { topic: string; title?: string; content?: string; file?: { name: string; mime: string; base64: string } }) =>
+    call<{ id: number; kind: string }>('POST', '/api/notes?view=create', x),
+  fileUrl: (id: number) => `/api/notes?view=file&id=${id}`,
   dueCards: () => call<{ cards: (Card & { title: string; topic: string })[] }>('GET', '/api/notes?view=due'),
   reviewCard: (id: number, right: boolean) => call<{ card: Card; due_in_days: number }>('POST', `/api/notes?view=review&id=${id}`, { right }),
   token: () => call<{ token: string; mcp_url: string }>('GET', '/api/token'),

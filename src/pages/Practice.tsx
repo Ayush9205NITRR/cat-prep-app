@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { DIFFICULTIES } from '../../shared/practice'
 import { areaOf } from '../../shared/topics'
 import { api, type PracticeSummary, type TopicHistory } from '../api'
-import { btnGhost, btnPrimary, Card, ErrorNote, fmtSeconds, Loading } from '../ui'
+import { btnGhost, btnPrimary, Card, Empty, ErrorNote, fmtSeconds, Loading, PageHeader } from '../ui'
 
 const DIFF_STYLE: Record<string, string> = { easy: 'bg-emerald-50 text-emerald-700', medium: 'bg-amber-50 text-amber-700', hard: 'bg-red-50 text-red-600' }
 
@@ -46,20 +46,15 @@ export default function Practice() {
   if (error) return <ErrorNote>{error}</ErrorNote>
   if (!qs) return <Loading />
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[18px] font-semibold tracking-tight">Practice</h1>
-          <p className="text-[12px] text-gray-500">Send Claude a teacher’s question or an assignment PDF. Then practise here: timer on, no hints.</p>
-        </div>
-        <div className="flex gap-1">
+    <div className="space-y-6">
+      <PageHeader title="Practice" sub="Send Claude a teacher’s question or an assignment PDF and say “Save these for practice”. Then practise here: timer on, no hints."
+        actions={<div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
           {['', ...DIFFICULTIES].map((d) => (
-            <button key={d} onClick={() => setDiff(d)} className={`rounded-md px-2.5 py-1 text-[12px] font-medium ${diff === d ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{d || 'All'}</button>
+            <button key={d} onClick={() => setDiff(d)} className={`rounded-lg px-3 py-1 text-[12px] font-medium capitalize ${diff === d ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{d || 'All'}</button>
           ))}
-        </div>
-      </div>
+        </div>} />
       {byTopic.length === 0 ? (
-        <Card><p className="py-6 text-center text-[13px] text-gray-500">{qs.length ? 'No questions at this difficulty.' : 'No questions yet. In Claude, upload a question or an assignment and say “Save these for practice”.'}</p></Card>
+        <Empty icon="🎯" title={qs.length ? 'No questions at this difficulty' : 'No questions yet'}>{qs.length ? 'Try another difficulty.' : 'In Claude, upload a question or an assignment and say “Save these for practice”.'}</Empty>
       ) : byTopic.map(([topic, list]) => (
         <Card key={topic} title={<span>{topic} <span className="font-normal text-gray-400">· {areaOf(topic)}</span></span>} aside={`${list.length} question${list.length > 1 ? 's' : ''}`}>
           <div className="mb-3 flex flex-wrap gap-2">

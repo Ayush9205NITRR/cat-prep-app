@@ -6,10 +6,10 @@ export const CHART = { danger: '#D97757', warning: '#D9A441', success: '#4C9A7A'
 
 export function Card({ title, aside, children, className = '' }: { title?: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}>
+    <div className={`rounded-2xl border border-gray-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06)] ${className}`}>
       {title && (
         <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-4">
-          <div className="text-[13px] font-semibold tracking-tight text-gray-900">{title}</div>
+          <div className="text-[13.5px] font-semibold tracking-tight text-gray-900">{title}</div>
           {aside && <div className="text-[11px] text-gray-400">{aside}</div>}
         </div>
       )}
@@ -19,11 +19,35 @@ export function Card({ title, aside, children, className = '' }: { title?: React
 }
 
 export const btn =
-  'inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
-export const btnPrimary = `${btn} bg-gray-900 text-white hover:bg-gray-700`
-export const btnGhost = `${btn} border border-gray-200 bg-white text-gray-700 hover:bg-gray-50`
+  'inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed'
+export const btnPrimary = `${btn} bg-gray-900 text-white shadow-sm hover:bg-gray-800`
+export const btnGhost = `${btn} border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50`
 export const inputCls =
-  'bg-white border border-gray-200 rounded-md px-2 py-1.5 text-[12px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-400'
+  'bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-[12.5px] text-gray-800 transition-colors focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400'
+
+/** Page title row: title, one-line description, actions on the right. */
+export function PageHeader({ title, sub, actions }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="text-[22px] font-semibold tracking-tight text-gray-900">{title}</h1>
+        {sub && <p className="mt-0.5 max-w-2xl text-[13px] text-gray-500">{sub}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  )
+}
+
+/** Friendly empty state with an optional action. */
+export function Empty({ icon, title, children }: { icon: ReactNode; title: string; children?: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-gray-300 bg-white/60 px-6 py-12 text-center">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-[20px]">{icon}</div>
+      <div className="text-[14px] font-semibold text-gray-900">{title}</div>
+      {children && <div className="mx-auto mt-1 max-w-md text-[12.5px] text-gray-500">{children}</div>}
+    </div>
+  )
+}
 
 export function Back({ to, children }: { to: string; children: ReactNode }) {
   return (

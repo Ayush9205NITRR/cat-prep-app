@@ -5,10 +5,11 @@ student edit everything, and runs the analysis with plain rules — there is no 
 
 - **Mocks:** upload a mock report → “Analyse my mock” → editable table, score, reachable score, buckets, deficit, top 3 fixes; two-tap review (A/B/C) and timed re-solve.
 - **Practice:** a teacher’s question or an assignment PDF → “Save these for practice” → question sets by topic and difficulty, timed practice with no hints, A/B/C taps after a wrong answer, hints one at a time in review, repeat-error flag.
+- **New note (in the app):** one box — type or paste; a lone URL is saved as a link, anything else as text — or add a photo/screenshot/PDF (choose, drag, or paste from the clipboard; big photos are shrunk in the browser; files up to 3 MB, type checked by content). Stored as given; no AI in the app.
 - **Notes:** photo of lecture notes, a text dump or a transcript → “Make notes and flashcards” → topic page with summary, formulas and 5–8 flashcards; one required tap “How did this click?”; cards due on a 1, 2, 4, 8-day schedule (wrong → tomorrow).
 
 - Live app: `https://<your-app>.vercel.app`
-- Students: open the app and click **Continue with Google**, or **Create account** (username or email + password). Each student gets their own token and only sees their own mocks.
+- Students: open the app and click **Continue with Google**. Username + password is folded under “Use a username and password instead” (reviewers use it for `demo`). Each student gets their own token and only sees their own mocks.
 - Test login: **demo** / **catprep-demo-2026** (has a sample mock, 6 practice questions in 2 topics and a sample note with flashcards)
 - MCP URL: `https://<your-app>.vercel.app/api/mcp` — add it in Claude and click Connect (OAuth sign-in). Claude Code: header `Authorization: Bearer <token>` (token on the Connect page)
 

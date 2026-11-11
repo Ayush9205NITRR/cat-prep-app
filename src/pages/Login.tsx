@@ -34,6 +34,8 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const next = nextParam && nextParam.startsWith('/oauth/authorize?') && !nextParam.includes('//') ? nextParam : null
   const signup = mode === 'signup'
   const [google, setGoogle] = useState(false)
+  // Google is the main way in; the password form is folded away (reviewers use it for the demo account).
+  const [withPassword, setWithPassword] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth?action=providers').then((r) => r.json()).then((d) => setGoogle(Boolean(d.google)), () => {})
@@ -57,49 +59,49 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
     }
   }
 
+  const showForm = !google || withPassword
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="text-[18px] font-semibold tracking-tight">CAT Prep</div>
-        <div className="mb-5 text-[12px] text-gray-500">
-          {next
-            ? 'Log in to connect Claude to your CAT Prep account.'
-            : signup ? 'Create your account. Then connect Claude and send it your first mock.' : 'Mock analysis. Claude reads your mock, you check it here.'}
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[20px] font-bold text-white shadow-lg shadow-indigo-500/20">C</div>
+          <h1 className="text-[22px] font-semibold tracking-tight">CAT Prep</h1>
+          <p className="mt-1 text-[13px] text-gray-500">
+            {next ? 'Log in to connect Claude to your account.' : 'Mocks, practice and notes. Claude reads your uploads, you check them here.'}
+          </p>
         </div>
-        {google && (
-          <>
-            <a href={next ? `/api/google?next=${encodeURIComponent(next)}` : '/api/google'} className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white py-2 text-[13px] font-medium text-gray-800 hover:bg-gray-50">
+        <form onSubmit={submit} className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-[0_1px_3px_rgba(16,24,40,0.06),0_8px_24px_-12px_rgba(16,24,40,0.12)]">
+          {google && (
+            <a href={next ? `/api/google?next=${encodeURIComponent(next)}` : '/api/google'} className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-gray-300 bg-white py-2.5 text-[14px] font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 active:scale-[0.99]">
               <GoogleIcon /> Continue with Google
             </a>
-            <div className="my-4 flex items-center gap-3 text-[11px] text-gray-400">
-              <div className="h-px flex-1 bg-gray-200" /> or <div className="h-px flex-1 bg-gray-200" />
-            </div>
-          </>
-        )}
-        <label className="mb-1 block text-[12px] font-medium text-gray-700" htmlFor="u">Username or email</label>
-        <input id="u" className={`${inputCls} mb-3 w-full py-2`} autoComplete="username" autoCapitalize="none" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
-        <label className="mb-1 block text-[12px] font-medium text-gray-700" htmlFor="p">Password</label>
-        <input
-          id="p"
-          type="password"
-          className={`${inputCls} mb-1 w-full py-2`}
-          autoComplete={signup ? 'new-password' : 'current-password'}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <div className="mb-4 text-[11px] text-gray-400">{signup ? 'Password: at least 8 characters. Your email works as a username.' : ' '}</div>
-        {error && <div className="mb-3"><ErrorNote>{error}</ErrorNote></div>}
-        <button className={`${btnPrimary} w-full py-2`} disabled={busy || !username || !password}>
-          {busy ? 'Please wait…' : signup ? 'Create account' : 'Log in'}
-        </button>
-        <button
-          type="button"
-          className="mt-3 w-full text-center text-[12px] text-gray-500 hover:text-gray-900"
-          onClick={() => { setMode(signup ? 'login' : 'signup'); setError('') }}
-        >
-          {signup ? 'Have an account? Log in' : 'New here? Create an account'}
-        </button>
-      </form>
+          )}
+          {google && !showForm && error && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
+          {google && !showForm && (
+            <button type="button" className="mt-4 w-full text-center text-[12px] text-gray-500 hover:text-gray-900" onClick={() => { setWithPassword(true); setError('') }}>
+              Use a username and password instead
+            </button>
+          )}
+          {showForm && (
+            <>
+              {google && <div className="my-4 flex items-center gap-3 text-[11px] text-gray-400"><div className="h-px flex-1 bg-gray-200" /> or <div className="h-px flex-1 bg-gray-200" /></div>}
+              <label className="mb-1 block text-[12px] font-medium text-gray-700" htmlFor="u">Username or email</label>
+              <input id="u" className={`${inputCls} mb-3 w-full py-2`} autoComplete="username" autoCapitalize="none" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+              <label className="mb-1 block text-[12px] font-medium text-gray-700" htmlFor="p">Password</label>
+              <input id="p" type="password" className={`${inputCls} mb-1 w-full py-2`} autoComplete={signup ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
+              <div className="mb-4 text-[11px] text-gray-400">{signup ? 'Password: at least 8 characters. Your email works as a username.' : '\u00a0'}</div>
+              {error && <div className="mb-3"><ErrorNote>{error}</ErrorNote></div>}
+              <button className={`${btnPrimary} w-full py-2.5`} disabled={busy || !username || !password}>
+                {busy ? 'Please wait…' : signup ? 'Create account' : 'Log in'}
+              </button>
+              <button type="button" className="mt-3 w-full text-center text-[12px] text-gray-500 hover:text-gray-900" onClick={() => { setMode(signup ? 'login' : 'signup'); setError('') }}>
+                {signup ? 'Have an account? Log in' : 'New here? Create an account'}
+              </button>
+            </>
+          )}
+        </form>
+        <p className="mt-4 text-center text-[11.5px] text-gray-400">Reviewer? Use a username and password: <b className="font-medium text-gray-500">demo</b></p>
+      </div>
     </div>
   )
 }

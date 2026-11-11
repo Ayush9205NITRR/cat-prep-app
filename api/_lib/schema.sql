@@ -133,3 +133,18 @@ CREATE TABLE IF NOT EXISTS flashcards (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS flashcards_due_idx ON flashcards(user_id, due_on);
+
+-- Notes the student adds in the app (safe to re-run)
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'summary';  -- summary (from Claude) | text | link | file
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS link_url TEXT;
+CREATE TABLE IF NOT EXISTS note_files (
+  id          SERIAL PRIMARY KEY,
+  note_id     INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  mime        TEXT NOT NULL,
+  size        INTEGER NOT NULL,
+  data        BYTEA NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS note_files_note_idx ON note_files(note_id);

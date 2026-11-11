@@ -36,29 +36,34 @@ export default function App() {
     )
 
   const nav = ({ isActive }: { isActive: boolean }) =>
-    `px-2.5 py-1 rounded-md text-[12px] font-medium ${isActive ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`
+    `shrink-0 rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${isActive ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-900/5 hover:text-gray-900'}`
+  const initial = user.username.slice(0, 1).toUpperCase()
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <Link to="/" className="text-[14px] font-semibold tracking-tight">CAT Prep</Link>
-          <nav className="flex items-center gap-1">
+      <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/75 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+          <Link to="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-[13px] font-bold text-white shadow-sm">C</span>
+            CAT Prep
+          </Link>
+          <nav className="-mx-1 flex max-w-full items-center gap-1 overflow-x-auto px-1">
             <NavLink to="/" end className={nav}>Mocks</NavLink>
             <NavLink to="/practice" className={nav}>Practice</NavLink>
             <NavLink to="/notes" className={nav}>Notes</NavLink>
             <NavLink to="/connect" className={nav}>Connect</NavLink>
             <button
-              className="px-2.5 py-1 text-[12px] text-gray-400 hover:text-gray-900"
+              className="ml-1 flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 hover:bg-gray-900/5 hover:text-gray-900"
               onClick={() => api.logout().finally(() => setUser(null))}
-              title={`Logged in as ${user.username}`}
+              title={`Logged in as ${user.username}. Click to log out.`}
             >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-semibold text-indigo-700">{initial}</span>
               Log out
             </button>
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto max-w-6xl px-4 py-7">
         <Routes>
           <Route path="/" element={<MocksList />} />
           <Route path="/mocks/:id" element={<MockPage />} />

@@ -3,9 +3,11 @@
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; }
 body {
-  background: #F9FAFB;
+  background: radial-gradient(1200px 500px at 10% -10%, #EEF2FF 0%, transparent 60%), radial-gradient(900px 400px at 100% 0%, #F5F3FF 0%, transparent 55%), #F8FAFC;
+  background-attachment: fixed;
   color: #111827;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;

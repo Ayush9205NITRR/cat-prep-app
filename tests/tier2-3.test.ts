@@ -32,3 +32,19 @@ describe('flashcards: 1, 2, 4, 8 days; wrong → tomorrow', () => {
     expect(schedule(0, true)).toEqual({ streak: 1, dueInDays: 1 })
   })
 })
+
+import { autoTitle, detectKind } from '../shared/note-input'
+describe('new note: text or link is detected', () => {
+  it('a lone URL is a link; anything else is text', () => {
+    expect(detectKind('https://youtu.be/abc')).toBe('link')
+    expect(detectKind('  www.example.com/notes  ')).toBe('link')
+    expect(detectKind('see https://example.com for more')).toBe('text')
+    expect(detectKind('Area = ½ × b × h')).toBe('text')
+    expect(detectKind('   ')).toBe('empty')
+  })
+  it('titles itself when left blank', () => {
+    expect(autoTitle('link', 'https://www.example.com/triangles/')).toBe('example.com/triangles')
+    expect(autoTitle('text', 'Triangles: Area Formulas\nmore')).toBe('Triangles: Area Formulas')
+    expect(autoTitle('file', '', 'lecture-5.jpg')).toBe('lecture-5')
+  })
+})

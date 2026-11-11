@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type MockSummary } from '../api'
-import { Card, ErrorNote, Loading } from '../ui'
+import { Empty, ErrorNote, Loading, PageHeader } from '../ui'
 
 export default function MocksList() {
   const [mocks, setMocks] = useState<MockSummary[] | null>(null)
@@ -13,21 +13,12 @@ export default function MocksList() {
   if (error) return <ErrorNote>{error}</ErrorNote>
   if (!mocks) return <Loading />
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-[18px] font-semibold tracking-tight">Your mocks</h1>
-        <p className="text-[12px] text-gray-500">
-          In Claude, upload a mock report and say “Analyse my mock”. It shows up here for you to check and edit.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Mocks" sub="In Claude, upload a mock report and say “Analyse my mock”. It shows up here for you to check and edit." />
       {mocks.length === 0 ? (
-        <Card>
-          <div className="py-8 text-center text-[13px] text-gray-500">
-            No mocks yet. <Link to="/connect" className="font-medium text-gray-900 underline">Connect Claude</Link>, then send it your first mock.
-          </div>
-        </Card>
+        <Empty icon="📊" title="No mocks yet"><Link to="/connect" className="font-medium text-indigo-700 underline">Connect Claude</Link>, then send it your first mock report.</Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06)]">
           {mocks.map((m) => (
             <Link key={m.id} to={`/mocks/${m.id}`} className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 last:border-0 hover:bg-gray-50">
               <div>

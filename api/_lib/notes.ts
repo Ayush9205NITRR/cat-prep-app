@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { CONFIG } from '../../shared/config'
 import { CLICK_TYPES, schedule } from '../../shared/flashcards'
+import { autoTitle, detectKind, FILE_TYPES, MAX_FILE_BYTES, normaliseUrl } from '../../shared/note-input'
 import { TOPICS } from '../../shared/topics'
 import { db, q } from './db'
 
@@ -20,7 +21,8 @@ export const NotePatch = z
   .object({
     topic: z.enum(TOPICS),
     title: z.string().min(1).max(200),
-    summary: z.string().min(1).max(5000),
+    summary: z.string().max(20000),
+    link_url: z.string().url().max(2000),
     formulas: z.array(z.string().min(1).max(300)).max(30),
     click_type: z.enum(CLICK_TYPES).nullable(),
   })
@@ -29,7 +31,7 @@ export const NotePatch = z
 export const CardInput = Card
 export const CardPatch = Card.partial().strict()
 
-const N_COLS = 'id, topic, title, summary, formulas, click_type, source, created_at'
+const N_COLS = 'id, topic, title, summary, formulas, click_type, source, kind, link_url, created_at'
 const C_COLS = 'id, note_id, front, back, streak, to_char(due_on, \'YYYY-MM-DD\') AS due_on, reviews'
 
 export async function saveNotes(userId: number, x: z.infer<z.ZodObject<typeof NotesInput>>) {
@@ -54,7 +56,10 @@ export async function saveNotes(userId: number, x: z.infer<z.ZodObject<typeof No
 
 export async function listNotes(userId: number) {
   const notes = await q(
-    `SELECT n.id, n.topic, n.title, n.click_type, n.created_at, count(f.id)::int AS cards,
+    `SELECT n.id, n.topic, n.title, n.click_type, n.kind, n.link_url, left(n.summary, 160) AS preview, n.created_at,
+       (SELECT nf.id FROM note_files nf WHERE nf.note_id = n.id ORDER BY nf.id LIMIT 1) AS file_id,
+       (SELECT nf.mime FROM note_files nf WHERE nf.note_id = n.id ORDER BY nf.id LIMIT 1) AS file_mime,
+       count(f.id)::int AS cards,
        count(f.id) FILTER (WHERE f.due_on <= ${TODAY})::int AS due
      FROM notes n LEFT JOIN flashcards f ON f.note_id = n.id WHERE n.user_id = $1 GROUP BY n.id ORDER BY n.topic, n.id DESC`,
     [userId],
@@ -66,7 +71,8 @@ export async function getNote(userId: number, id: number) {
   const [note] = await q(`SELECT ${N_COLS} FROM notes WHERE id = $1 AND user_id = $2`, [id, userId])
   if (!note) return null
   const cards = await q(`SELECT ${C_COLS} FROM flashcards WHERE note_id = $1 ORDER BY id`, [id])
-  return { note, cards }
+  const files = await q('SELECT id, name, mime, size FROM note_files WHERE note_id = $1 ORDER BY id', [id])
+  return { note, cards, files }
 }
 
 export async function updateNote(userId: number, id: number, patch: z.infer<typeof NotePatch>) {
@@ -117,4 +123,60 @@ export async function reviewCard(userId: number, id: number, right: boolean) {
     [id, userId, s.streak, s.dueInDays],
   )
   return { card, due_in_days: s.dueInDays }
+}
+
+// ---------- "New note" from the app: text, link or file, detected automatically ----------
+export const CreateNote = z.object({
+  topic: z.enum(TOPICS),
+  title: z.string().max(200).optional(),
+  content: z.string().max(20000).optional(),
+  file: z.object({ name: z.string().min(1).max(200), mime: z.enum(FILE_TYPES), base64: z.string().min(1) }).optional(),
+})
+
+export async function createNote(userId: number, x: z.infer<typeof CreateNote>) {
+  const content = x.content ?? ''
+  const detected = detectKind(content)
+  let bytes: Buffer | null = null
+  if (x.file) {
+    bytes = Buffer.from(x.file.base64, 'base64')
+    if (!bytes.length || bytes.length > MAX_FILE_BYTES) return { problem: 'Files can be up to 3 MB.' }
+    if (!magicOk(bytes, x.file.mime)) return { problem: 'That file is not the type it says it is.' }
+  } else if (detected === 'empty') return { problem: 'Type or paste something, or attach a file.' }
+
+  const kind = x.file ? 'file' : detected
+  const link = kind === 'link' ? normaliseUrl(content) : null
+  const title = (x.title ?? '').trim() || autoTitle(kind, content, x.file?.name)
+  const summary = kind === 'link' ? '' : content.trim()
+  const client = await db().connect()
+  try {
+    await client.query('BEGIN')
+    const { rows: [n] } = await client.query(
+      "INSERT INTO notes (user_id, topic, title, summary, kind, link_url, source) VALUES ($1,$2,$3,$4,$5,$6,'Added in the app') RETURNING id",
+      [userId, x.topic, title, summary, kind, link],
+    )
+    if (bytes) await client.query('INSERT INTO note_files (note_id, user_id, name, mime, size, data) VALUES ($1,$2,$3,$4,$5,$6)', [n.id, userId, x.file!.name, x.file!.mime, bytes.length, bytes])
+    await client.query('COMMIT')
+    return { id: n.id as number, kind }
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
+}
+
+/** Checks the first bytes so a renamed file cannot pretend to be an image or PDF. */
+function magicOk(b: Buffer, mime: string) {
+  const hex = b.subarray(0, 12).toString('hex')
+  if (mime === 'image/png') return hex.startsWith('89504e47')
+  if (mime === 'image/jpeg') return hex.startsWith('ffd8ff')
+  if (mime === 'image/gif') return hex.startsWith('47494638')
+  if (mime === 'image/webp') return hex.startsWith('52494646') && b.subarray(8, 12).toString() === 'WEBP'
+  if (mime === 'application/pdf') return b.subarray(0, 5).toString() === '%PDF-'
+  return false
+}
+
+export async function getFile(userId: number, id: number) {
+  const [f] = await q<{ name: string; mime: string; data: Buffer }>('SELECT name, mime, data FROM note_files WHERE id = $1 AND user_id = $2', [id, userId])
+  return f ?? null
 }
