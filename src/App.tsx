@@ -8,6 +8,12 @@ import MockPage from './pages/MockPage'
 import Review from './pages/Review'
 import Resolve from './pages/Resolve'
 import Connect from './pages/Connect'
+import Practice from './pages/Practice'
+import PracticeSession from './pages/PracticeSession'
+import QuestionEdit from './pages/QuestionEdit'
+import Notes from './pages/Notes'
+import NotePage from './pages/NotePage'
+import CardReview from './pages/CardReview'
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
@@ -39,7 +45,9 @@ export default function App() {
           <Link to="/" className="text-[14px] font-semibold tracking-tight">CAT Prep</Link>
           <nav className="flex items-center gap-1">
             <NavLink to="/" end className={nav}>Mocks</NavLink>
-            <NavLink to="/connect" className={nav}>Connect Claude</NavLink>
+            <NavLink to="/practice" className={nav}>Practice</NavLink>
+            <NavLink to="/notes" className={nav}>Notes</NavLink>
+            <NavLink to="/connect" className={nav}>Connect</NavLink>
             <button
               className="px-2.5 py-1 text-[12px] text-gray-400 hover:text-gray-900"
               onClick={() => api.logout().finally(() => setUser(null))}
@@ -56,6 +64,12 @@ export default function App() {
           <Route path="/mocks/:id" element={<MockPage />} />
           <Route path="/mocks/:id/review" element={<Review />} />
           <Route path="/mocks/:id/resolve" element={<Resolve />} />
+          <Route path="/practice" element={<Practice />} />
+          <Route path="/practice/session" element={<PracticeSession />} />
+          <Route path="/practice/questions/:id" element={<QuestionEdit />} />
+          <Route path="/notes" element={<Notes />} />
+          <Route path="/notes/review" element={<CardReview />} />
+          <Route path="/notes/:id" element={<NotePage />} />
           <Route path="/connect" element={<Connect />} />
           <Route path="/login" element={<Navigate to={(location.state as any)?.from ?? '/'} replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

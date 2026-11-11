@@ -15,4 +15,18 @@ export const CONFIG = {
   RANK_MARKS_PER_EXTRA_MINUTE: 1.5,
   /** How many fixes to show. */
   TOP_FIXES: 3,
+
+  // ---- Tier 2: practice ----
+  /** A wrong answer is a "repeat" if the same topic had the same error (A/B/C) in this many earlier attempts. */
+  REPEAT_WINDOW: 10,
+  /** get_topic_history returns this many attempts. */
+  HISTORY_SIZE: 20,
+
+  // ---- Tier 3: flashcards ----
+  /** Days until the next review after each right answer in a row; stays at the last value after that. */
+  FLASHCARD_INTERVALS: [1, 2, 4, 8],
+  /** A wrong answer brings the card back after this many days and restarts the intervals. */
+  FLASHCARD_WRONG_DAYS: 1,
+  /** "Today" for due cards, in the students' time zone. */
+  TIME_ZONE: 'Asia/Kolkata',
 } as const

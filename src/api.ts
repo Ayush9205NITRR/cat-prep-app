@@ -5,6 +5,26 @@ export interface MockMeta { id: number; name: string; taken_on: string; has_time
 export interface MockSummary extends MockMeta { questions: number; score: number; reachable_score: number; max_score: number }
 export interface MockData { mock: MockMeta; rows: (QuestionRow & { id: number })[] }
 
+export interface PracticeQuestion {
+  id: number; topic: string; difficulty: 'easy' | 'medium' | 'hard'; text: string; options: string[]; correct_index: number
+  ideal_seconds: number; type_options: string[]; type_answer: number; approach_options: string[]; approach_answer: number
+  solution_notes: string; hints: string[]; source: string
+}
+export interface PracticeSummary { id: number; topic: string; difficulty: string; text: string; source: string; attempts: number; right_attempts: number; last_correct: boolean | null }
+export interface SolvingQuestion { question_id: number; topic: string; difficulty: string; text: string; options: string[]; ideal_seconds: number }
+export interface Attempt {
+  id: number; question_id: number; topic: string; chosen_index: number; correct: boolean; seconds: number
+  type_tap: number | null; approach_tap: number | null; error_class: 'A' | 'B' | 'C' | null; repeat: boolean | null; created_at: string
+}
+export interface TopicHistory {
+  topic: string; attempts: number; right: number
+  errors: { A: number; B: number; C: number; not_tapped: number; repeats: number }
+  history: (Attempt & { text: string; difficulty: string; ideal_seconds: number })[]
+}
+export interface NoteSummary { id: number; topic: string; title: string; click_type: string | null; cards: number; due: number }
+export interface Note { id: number; topic: string; title: string; summary: string; formulas: string[]; click_type: string | null; source: string }
+export interface Card { id: number; note_id: number; front: string; back: string; streak: number; due_on: string; reviews: number }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
@@ -34,6 +54,29 @@ export const api = {
   updateMock: (id: number, patch: Partial<MockMeta>) => call<MockData>('PATCH', `/api/mocks?id=${id}`, patch),
   updateQuestion: (id: number, patch: Partial<QuestionRow>) =>
     call<{ row: QuestionRow & { id: number } }>('PATCH', `/api/questions?id=${id}`, patch),
+  // Tier 2
+  practiceList: () => call<{ questions: PracticeSummary[] }>('GET', '/api/practice?view=list'),
+  practiceQuestion: (id: number) => call<{ question: PracticeQuestion }>('GET', `/api/practice?view=question&id=${id}`),
+  updatePracticeQuestion: (id: number, patch: Partial<PracticeQuestion>) =>
+    call<{ question: PracticeQuestion }>('PATCH', `/api/practice?view=question&id=${id}`, patch),
+  deletePracticeQuestion: (id: number) => call('DELETE', `/api/practice?view=question&id=${id}`),
+  nextQuestion: (topic: string, difficulty?: string, skip?: number) =>
+    call<{ question: SolvingQuestion | null }>('GET', `/api/practice?view=next&topic=${encodeURIComponent(topic)}${difficulty ? `&difficulty=${difficulty}` : ''}${skip ? `&skip=${skip}` : ''}`),
+  submitAttempt: (question_id: number, chosen_index: number, seconds: number) =>
+    call<{ attempt: Attempt; question: PracticeQuestion }>('POST', '/api/practice?view=attempt', { question_id, chosen_index, seconds }),
+  setTaps: (id: number, type_tap: number | null, approach_tap: number | null) =>
+    call<{ attempt: Attempt }>('PATCH', `/api/practice?view=attempt&id=${id}`, { type_tap, approach_tap }),
+  history: (topic: string) => call<TopicHistory>('GET', `/api/practice?view=history&topic=${encodeURIComponent(topic)}`),
+  // Tier 3
+  notes: () => call<{ notes: NoteSummary[]; due: number }>('GET', '/api/notes?view=list'),
+  note: (id: number) => call<{ note: Note; cards: Card[] }>('GET', `/api/notes?view=note&id=${id}`),
+  updateNote: (id: number, patch: Partial<Note>) => call<{ note: Note; cards: Card[] }>('PATCH', `/api/notes?view=note&id=${id}`, patch),
+  deleteNote: (id: number) => call('DELETE', `/api/notes?view=note&id=${id}`),
+  addCard: (noteId: number, front: string, back: string) => call<{ card: Card }>('POST', `/api/notes?view=card&note_id=${noteId}`, { front, back }),
+  updateCard: (id: number, patch: Partial<Card>) => call<{ card: Card }>('PATCH', `/api/notes?view=card&id=${id}`, patch),
+  deleteCard: (id: number) => call('DELETE', `/api/notes?view=card&id=${id}`),
+  dueCards: () => call<{ cards: (Card & { title: string; topic: string })[] }>('GET', '/api/notes?view=due'),
+  reviewCard: (id: number, right: boolean) => call<{ card: Card; due_in_days: number }>('POST', `/api/notes?view=review&id=${id}`, { right }),
   token: () => call<{ token: string; mcp_url: string }>('GET', '/api/token'),
   newToken: () => call<{ token: string; mcp_url: string }>('POST', '/api/token'),
 }

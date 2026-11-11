@@ -1,12 +1,15 @@
-# CAT Prep — mock analysis from Claude
+# CAT Prep — mocks, practice and notes from Claude
 
-Upload a CAT mock report (PDF, photos, screenshots) to Claude and say **“Analyse my mock”**. Claude reads every
-question and sends it to this app through MCP. The mock appears in the app, where you can correct any cell, review
-wrong answers with two taps, and re-solve skipped questions. The analysis is plain rules — there is no AI inside the app.
+Claude reads what the student uploads and sends structured data to this app through MCP. The app stores it, lets the
+student edit everything, and runs the analysis with plain rules — there is no AI inside the app.
+
+- **Mocks:** upload a mock report → “Analyse my mock” → editable table, score, reachable score, buckets, deficit, top 3 fixes; two-tap review (A/B/C) and timed re-solve.
+- **Practice:** a teacher’s question or an assignment PDF → “Save these for practice” → question sets by topic and difficulty, timed practice with no hints, A/B/C taps after a wrong answer, hints one at a time in review, repeat-error flag.
+- **Notes:** photo of lecture notes, a text dump or a transcript → “Make notes and flashcards” → topic page with summary, formulas and 5–8 flashcards; one required tap “How did this click?”; cards due on a 1, 2, 4, 8-day schedule (wrong → tomorrow).
 
 - Live app: `https://<your-app>.vercel.app`
 - Students: open the app and click **Continue with Google**, or **Create account** (username or email + password). Each student gets their own token and only sees their own mocks.
-- Test login: **demo** / **catprep-demo-2026**
+- Test login: **demo** / **catprep-demo-2026** (has a sample mock, 6 practice questions in 2 topics and a sample note with flashcards)
 - MCP URL: `https://<your-app>.vercel.app/api/mcp` — add it in Claude and click Connect (OAuth sign-in). Claude Code: header `Authorization: Bearer <token>` (token on the Connect page)
 
 ## Connect Claude (3 steps)
@@ -31,6 +34,11 @@ claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp -
 |---|---|
 | `save_mock` | Saves a mock and its questions; returns `mock_id`, score and the app link |
 | `get_report` | Score, reachable score, bucket counts, deficit split, top 3 fixes |
+| `save_question` | Saves one practice question (mock-row fields + difficulty, hints). Once per question for a PDF |
+| `next_question` | One question for a topic (and difficulty): never tried first, then last-wrong. No answer, solution or hints |
+| `submit_answer` | Saves the attempt → correct or not. If wrong, returns the two tap questions; a second call with the taps returns A/B/C and whether it repeats an error |
+| `get_topic_history` | Last 20 attempts and errors for a topic |
+| `save_notes` | Summary, formulas and 5–8 flashcards for a topic |
 
 `topic` is an enum of the 38 fixed topics (7 areas), so Claude cannot invent topics. Wrong or missing token → 401
 with `WWW-Authenticate: Bearer resource_metadata=…` so OAuth clients find the sign-in.
@@ -98,10 +106,10 @@ npm test
 ## Layout
 
 ```
-api/            Vercel Functions: mcp, auth, google, oauth, mocks, questions, token
+api/            Vercel Functions: mcp, auth, google, oauth, mocks, questions (mock rows), practice, notes, token
 api/_lib/       DB, auth (bcrypt, signed cookie, token hash), data access, MCP server, schema.sql
-shared/         topics, config, analysis rules, sample mock (used by UI, API and tests)
-src/            React UI: Login, Mocks list, Mock page, Review, Re-solve, Connect Claude
+shared/         topics, config, rules (analysis, practice, flashcards), demo samples (used by UI, API and tests)
+src/            React UI: Login, Mocks, Mock page, Review, Re-solve, Practice, Practice session, Question editor, Notes, Note page, Flashcard review, Connect
 scripts/        migrate, seed, local dev server; neon-ws-preload (sandbox-only test shim, see the file)
 neon.ts         Neon services for this project (Postgres only)
 tests/          analysis unit tests
