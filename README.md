@@ -66,8 +66,8 @@ That writes `DATABASE_URL` (pooled, used by the app) and `DATABASE_URL_UNPOOLED`
 `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (from `neon env pull` or the Neon console → Connect) and
 `SESSION_SECRET` (any long random string, e.g. `openssl rand -hex 32`). Deploy.
 
-Every **production** Vercel build runs `db:migrate` (idempotent, over the direct URL), then `db:seed` (resets the demo account's
-sample mock; the demo token is printed in the build log), then builds the UI. Preview builds only build the UI, so they never touch the live database. `SESSION_SECRET` must stay the same
+Every **production** Vercel build runs `db:migrate` (idempotent, over the direct URL), then `db:seed` (resets the demo password,
+keeps its token and sample mock — `npm run db:seed -- --reset-sample` gives a fresh copy; the token is printed in the build log), then builds the UI. Preview builds only build the UI, so they never touch the live database. `SESSION_SECRET` must stay the same
 between deploys: tokens are stored encrypted with it so the Connect page can show them.
 
 The app uses `pg` (node-postgres) with `attachDatabasePool` from `@vercel/functions`, as Neon recommends for Vercel.
