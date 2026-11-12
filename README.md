@@ -5,6 +5,7 @@ student edit everything, and runs the analysis with plain rules — there is no 
 
 - **Structure:** Quant · VARC · DILR → areas → topics. Each topic page is one home: Mistakes (Open · Fixed · Repeated, A/B/C, fix note), Notes, Practice (tests and retests), Flashcards.
 - **The loop:** take a test (5/10/15 questions, no feedback) → result page like a mock → in Claude “Analyse my last test”: `get_report` → two taps per wrong question (`tag_mistake`) → short explanation → `save_fix` (fix note + flashcard on the topic) → `start_retest` → a mistake answered right within its ideal time becomes **Fixed**; wrong again → **Repeated**.
+- **Upload for Claude (inbox):** Mocks & Tests → **Upload for Claude**: Mock paper (PDF), Assignment (PDF), Class notes (photo or PDF). Then one prompt: *Process my mbaprep inbox one item at a time and give me the app link after each.* Claude calls `get_inbox` (a tiny list), then per item `get_upload` → save (`save_mock` / `save_notes` / `save_questions` with `upload_id`) → link, before opening the next — never reading all files first. Each inbox row then links to where it was saved.
 - **Fast mock upload:** Mocks & Tests → **Upload mock PDF**. The browser extracts the PDF's text layer (pdf.js — plain text extraction, not AI) and stores it; Claude reads compact text with `get_mock_upload` (~24k characters per call) instead of a whole PDF, saves rows with `save_mock` (≤30) + `add_mock_rows`, and writes tap options and solutions only for wrong or slow questions, at review time (`add_review_options`). Scanned PDFs (no text) up to 3 MB are passed to Claude as the PDF.
   Prompt: *Read my latest mock upload in mbaprep and save it. Then analyse it: use next_mistake, ask me tap 1 and tap 2 for each wrong or slow question, explain in 80 words, save a fix, and offer a retest at the end.*
 - **Mocks:** upload a mock report → “Analyse my mock” → editable table, score, reachable score, buckets, deficit, top 3 fixes; two-tap review (A/B/C) and timed re-solve.
@@ -47,6 +48,8 @@ claude mcp add --transport http mbaprep https://<your-app>.vercel.app/api/mcp --
 | `submit_answer` | Saves the attempt → correct or not. If wrong, returns the two tap questions; a second call with the taps returns A/B/C and whether it repeats an error |
 | `get_topic_history` | Last 20 attempts and errors for a topic |
 | `save_notes` | Summary, formulas and 5–8 flashcards for a topic |
+| `get_inbox` | Uploads waiting (mock papers, assignments, class notes): id, kind, size — no content |
+| `get_upload` | One inbox item: text in chunks of pages, or the photo/PDF itself when it has no text |
 | `get_mock_upload` | Text of a mock PDF uploaded in the app (latest unread by default), a chunk of pages per call |
 | `add_mock_rows` | Append rows to a saved mock (long papers in parts) |
 | `add_review_options` | Tap options + solution for one wrong/slow question saved without them |

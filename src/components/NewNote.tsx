@@ -6,7 +6,7 @@ import { api } from '../api'
 import { btnGhost, btnPrimary, ErrorNote, inputCls } from '../ui'
 
 /** Big photos are shrunk in the browser (longest side 1600 px, JPEG) so uploads stay small. GIF and PDF go as they are. */
-async function prepareFile(f: File): Promise<{ name: string; mime: string; base64: string }> {
+export async function prepareFile(f: File): Promise<{ name: string; mime: string; base64: string }> {
   let blob: Blob = f
   let mime = f.type
   let name = f.name || 'pasted-image.png'

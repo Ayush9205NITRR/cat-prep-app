@@ -7,7 +7,7 @@ import type { User } from './auth'
 import { markFileRead, nextMistake, noteFull, oneLine, page, profile, rewriteNote, topicDigest, type Include } from './claude'
 import { q } from './db'
 import { addRows, createMock, getMock, MockInput, RowInput, rowProblems, setReviewOptions } from './mocks'
-import { markUploadSaved, readUpload } from './uploads'
+import { inbox, markUploadSaved, readUpload } from './uploads'
 import { NotesInput, saveNotes, updateCard } from './notes'
 import { forSolving, nextQuestion, problems, QuestionInput, saveQuestion, setTaps, submitAnswer, topicHistory } from './practice'
 import { FixInput, prepareRetest, saveFix, tagMistake } from './topics'
@@ -28,6 +28,7 @@ export const INSTRUCTIONS = [
   '10. Walk mistakes with `next_mistake` (one at a time). Reuse its `solution_notes` or `saved_fix` instead of writing a new explanation.',
   '11. Explanations follow "Where it went wrong · Faster way · Rule", 80 words max.',
   '12. For a mock uploaded in the app: read it with `get_mock_upload` (follow next_page), then `save_mock` with upload_id and at most 30 rows, and `add_mock_rows` for the rest. For right-and-in-time questions a one-line question text is enough.',
+  '13. When the student sends several files or asks to process the inbox: call `get_inbox`, then finish ONE item at a time (read it, save it, give its app link) before opening the next. Never read all files first. If files are attached in chat instead, still do them one by one and give each link as soon as it is saved.',
   '',
   'Topics (use these exact names):',
   TOPIC_LIST,
@@ -50,6 +51,25 @@ const fixTopic = <T extends { topic: string }>(x: T): T => ({ ...x, topic: (reso
 export function buildMcpServer(user: User, appUrl: string): McpServer {
   const server = new McpServer({ name: 'mbaprep', version: '1.1.0' }, { instructions: INSTRUCTIONS })
   const topicLink = (t: string) => `${appUrl}/topic/${encodeURIComponent(t)}`
+  const SAVE_HINT: Record<string, string> = {
+    mock: 'Save with save_mock (upload_id) and add_mock_rows.',
+    assignment: 'Save with save_questions (upload_id).',
+    notes: 'Save with save_notes (upload_id).',
+  }
+  function uploadResult(r: Awaited<ReturnType<typeof readUpload>>, missing = 'No such upload for this account.') {
+    if (!r) return error(missing)
+    const u = r.upload
+    const head = { upload_id: u.id, kind: u.kind, name: u.name, section: u.section, pages: u.pages, status: u.status }
+    if ('chunk' in r) return text({ ...head, ...r.chunk, next: r.chunk!.next_page ? 'Call again with from_page = next_page.' : `All pages read. ${SAVE_HINT[u.kind]}` })
+    if (!r.pdf) return error('This upload has no text and no stored file.')
+    const data = r.pdf.toString('base64')
+    return { content: [
+      { type: 'text' as const, text: JSON.stringify({ ...head, note: `No text layer: read the attached ${u.mime === 'application/pdf' ? 'PDF' : 'photo'}. ${SAVE_HINT[u.kind]}` }) },
+      u.mime === 'application/pdf'
+        ? { type: 'resource' as const, resource: { uri: `${appUrl}/mocks?upload=${u.id}`, mimeType: 'application/pdf', blob: data } }
+        : { type: 'image' as const, data, mimeType: u.mime },
+    ] }
+  }
 
   // ---------------- Mocks and tests ----------------
   server.registerTool('save_mock', { title: 'Save a mock', description: 'Save a mock, one row per question (≤30 here; add_mock_rows for the rest). Tap options only for wrong/slow questions.', inputSchema: { ...MockInput, rows: MockInput.rows.max(60), upload_id: z.number().int().min(1).optional().describe('From get_mock_upload') } },
@@ -64,27 +84,32 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
         problems.push('has_time_data is true but some attempted rows have no seconds')
       if (problems.length) return error('Nothing saved. Fix these and call save_mock again:\n- ' + problems.join('\n- '))
       const id = await createMock(user.id, { name, taken_on, has_time_data, section }, rows.map(fixTopic) as any)
-      if (upload_id) await markUploadSaved(user.id, upload_id, id)
+      if (upload_id) await markUploadSaved(user.id, upload_id, id, `${appUrl}/mocks/${id}`)
       const r = analyse((await getMock(user.id, id))!.rows, has_time_data)
       return text({ mock_id: id, saved: rows.length, score: r.score, max: r.max_score, app_link: `${appUrl}/mocks/${id}` })
     })
+
+  server.registerTool('get_inbox', {
+    title: 'What is waiting',
+    description: 'Uploads waiting to be processed (mock papers, assignments, class notes): id, kind, size. Process them one at a time.',
+    inputSchema: {},
+  }, async () => {
+    const items = await inbox(user.id)
+    return text({ waiting: items, next: items.length ? 'Open the first with get_upload, save it, give its link, then the next.' : 'Inbox is empty.' })
+  })
+
+  server.registerTool('get_upload', {
+    title: 'Read one upload',
+    description: 'Content of one inbox item: text a chunk of pages at a time (follow next_page), or the photo/PDF itself when it has no text.',
+    inputSchema: { upload_id: z.number().int().min(1), from_page: z.number().int().min(1).optional() },
+  }, async ({ upload_id, from_page }) => uploadResult(await readUpload(user.id, upload_id, from_page)))
 
   server.registerTool('get_mock_upload', {
     title: 'Read an uploaded mock',
     description: 'Text of a mock paper the student uploaded in the app (default: the latest unread one), a chunk of pages at a time.',
     inputSchema: { upload_id: z.number().int().min(1).optional(), from_page: z.number().int().min(1).optional() },
-  }, async ({ upload_id, from_page }) => {
-    const r = await readUpload(user.id, upload_id, from_page)
-    if (!r) return error(upload_id ? `No upload ${upload_id} for this account.` : 'No unread mock uploads. Ask the student to upload the PDF in the app (Mocks & Tests → Upload mock PDF).')
-    const u = r.upload
-    const head = { upload_id: u.id, name: u.name, section: u.section, pages: u.pages, status: u.status }
-    if ('chunk' in r) return text({ ...head, ...r.chunk, next: r.chunk!.next_page ? 'Call again with from_page = next_page.' : 'All pages read. Save with save_mock (upload_id) and add_mock_rows.' })
-    if (!r.pdf) return error('This upload has no text and no stored PDF.')
-    return { content: [
-      { type: 'text' as const, text: JSON.stringify({ ...head, note: 'Scanned PDF (no text layer): read the attached PDF.' }) },
-      { type: 'resource' as const, resource: { uri: `${appUrl}/mocks?upload=${u.id}`, mimeType: 'application/pdf', blob: r.pdf.toString('base64') } },
-    ] }
-  })
+  }, async ({ upload_id, from_page }) => uploadResult(await readUpload(user.id, upload_id, from_page, 'mock'),
+    'No unread mock uploads. Ask the student to upload the PDF in the app (Mocks & Tests → Upload for Claude).'))
 
   server.registerTool('add_mock_rows', {
     title: 'Add rows to a mock',
@@ -184,7 +209,7 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
 
   // ---------------- Questions and practice ----------------
   const QuestionObject = z.object(QuestionInput)
-  async function saveMany(list: z.infer<typeof QuestionObject>[]) {
+  async function saveMany(list: z.infer<typeof QuestionObject>[], uploadId?: number) {
     const bt = badTopics(list.map((x) => x.topic))
     if (bt) return bt
     const errs = list.flatMap((x, i) => problems(x).map((p) => `#${i + 1}: ${p}`))
@@ -192,13 +217,14 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
     const ids: number[] = []
     for (const x of list) ids.push(await saveQuestion(user.id, fixTopic(x)))
     const topics = [...new Set(list.map((x) => fixTopic(x).topic))]
+    if (uploadId) await markUploadSaved(user.id, uploadId, null, topicLink(topics[0]))
     return text({ saved: ids.length, ids, topics: topics.map((t) => ({ topic: t, link: topicLink(t) })) })
   }
   server.registerTool('save_questions', {
     title: 'Save practice questions',
     description: 'Save up to 50 questions at once (e.g. a whole assignment PDF) into the topic question sets.',
-    inputSchema: { questions: z.array(QuestionObject).min(1).max(50) },
-  }, async ({ questions }) => saveMany(questions))
+    inputSchema: { questions: z.array(QuestionObject).min(1).max(50), upload_id: z.number().int().min(1).optional().describe('Inbox item these came from') },
+  }, async ({ questions, upload_id }) => saveMany(questions, upload_id))
 
   server.registerTool('save_question', {
     title: 'Save one practice question',
@@ -259,10 +285,11 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
   server.registerTool('save_notes', {
     title: 'Save notes and cards',
     description: 'Save a Markdown summary, formulas and 5–8 flashcards for a topic. Ask the student to tap "How did this click?" in the app.',
-    inputSchema: NotesInput,
-  }, async (x) => {
+    inputSchema: { ...NotesInput, upload_id: z.number().int().min(1).optional().describe('Inbox item these came from') },
+  }, async ({ upload_id, ...x }) => {
     const r = topicOr(x.topic); if ('err' in r) return r.err
     const id = await saveNotes(user.id, { ...x, topic: r.topic as any })
+    if (upload_id) await markUploadSaved(user.id, upload_id, null, `${appUrl}/notes/${id}`)
     return text({ note_id: id, flashcards: x.flashcards.length, note_link: `${appUrl}/notes/${id}` })
   })
 

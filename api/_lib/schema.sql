@@ -187,3 +187,11 @@ CREATE TABLE IF NOT EXISTS mock_uploads (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS mock_uploads_user_idx ON mock_uploads(user_id, id DESC);
+
+-- Inbox: uploads of any kind for Claude to process one at a time (safe to re-run)
+ALTER TABLE mock_uploads ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'mock';
+ALTER TABLE mock_uploads ADD COLUMN IF NOT EXISTS mime TEXT NOT NULL DEFAULT 'application/pdf';
+ALTER TABLE mock_uploads ADD COLUMN IF NOT EXISTS result_link TEXT;   -- where Claude saved it (mock, note or topic page)
+DO $$ BEGIN
+  ALTER TABLE mock_uploads ADD CONSTRAINT mock_uploads_kind_chk CHECK (kind IN ('mock', 'assignment', 'notes'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
