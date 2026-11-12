@@ -1,6 +1,6 @@
 import { defineConfig } from "@neon/config/v1";
 
-// CAT Prep uses Lakebase Postgres only (every Neon project ships with it).
+// mbaprep uses Lakebase Postgres only (every Neon project ships with it).
 // No AI gateway, object storage, functions or realtime: the brief rules out AI inside the app,
 // and nothing in Tier 1 needs the others.
 export default defineConfig({

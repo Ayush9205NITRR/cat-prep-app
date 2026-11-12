@@ -1,4 +1,4 @@
-# CAT Prep — mocks, practice and notes from Claude
+# mbaprep — CAT mocks, practice and notes from Claude
 
 Claude reads what the student uploads and sends structured data to this app through MCP. The app stores it, lets the
 student edit everything, and runs the analysis with plain rules — there is no AI inside the app.
@@ -21,8 +21,8 @@ student edit everything, and runs the analysis with plain rules — there is no 
 ## Connect Claude (3 steps)
 
 1. In Claude (claude.ai or the desktop app): **Settings → Connectors → Add custom connector**.
-2. Name it *CAT Prep*, paste `https://<your-app>/api/mcp`, click **Add**. Leave the OAuth fields empty.
-3. Click **Connect**, log in to CAT Prep (Google or password), click **Allow**. Turn the connector on in a chat.
+2. Name it *mbaprep*, paste `https://<your-app>/api/mcp`, click **Add**. Leave the OAuth fields empty.
+3. Click **Connect**, log in to mbaprep (Google or password), click **Allow**. Turn the connector on in a chat.
 
 claude.ai connectors sign in with OAuth: the app is its own OAuth 2.1 server for MCP (discovery via
 `/.well-known/oauth-protected-resource`, dynamic client registration, PKCE S256, rotating refresh tokens).
@@ -31,7 +31,7 @@ No token is copied and nothing goes in the URL.
 Claude Code or MCP Inspector can use the personal token from the Connect page as a header instead:
 
 ```bash
-claude mcp add --transport http cat-prep https://<your-app>.vercel.app/api/mcp --header "Authorization: Bearer <your token>"
+claude mcp add --transport http mbaprep https://<your-app>.vercel.app/api/mcp --header "Authorization: Bearer <your token>"
 ```
 
 ## MCP tools

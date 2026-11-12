@@ -45,8 +45,8 @@ export default function App() {
       <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2.5">
           <Link to="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-[13px] font-bold text-white shadow-sm">C</span>
-            CAT Prep
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-[13px] font-bold text-white shadow-sm">M</span>
+            mbaprep
           </Link>
           <nav className="-mx-1 flex max-w-full items-center gap-1 overflow-x-auto px-1">
             <NavLink to="/section/Quant" className={nav}>Quant</NavLink>

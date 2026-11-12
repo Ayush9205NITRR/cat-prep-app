@@ -46,7 +46,7 @@ const badTopics = (topics: string[]) => {
 const fixTopic = <T extends { topic: string }>(x: T): T => ({ ...x, topic: (resolveTopic(x.topic) as { topic: string }).topic })
 
 export function buildMcpServer(user: User, appUrl: string): McpServer {
-  const server = new McpServer({ name: 'cat-prep', version: '1.1.0' }, { instructions: INSTRUCTIONS })
+  const server = new McpServer({ name: 'mbaprep', version: '1.1.0' }, { instructions: INSTRUCTIONS })
   const topicLink = (t: string) => `${appUrl}/topic/${encodeURIComponent(t)}`
 
   // ---------------- Mocks and tests ----------------

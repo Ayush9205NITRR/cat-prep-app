@@ -77,8 +77,8 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[20px] font-bold text-white shadow-lg shadow-indigo-500/20">C</div>
-          <h1 className="text-[22px] font-semibold tracking-tight">CAT Prep</h1>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[20px] font-bold text-white shadow-lg shadow-indigo-500/20">M</div>
+          <h1 className="text-[22px] font-semibold tracking-tight">mbaprep</h1>
           <p className="mt-1 text-[13px] text-gray-500">
             {next ? 'Log in to connect Claude to your account.' : 'Mocks, practice and notes. Claude reads your uploads, you check them here.'}
           </p>

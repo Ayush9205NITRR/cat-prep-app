@@ -43,7 +43,7 @@ export function protectedResourceMetadata(req: Req, res: Res) {
     authorization_servers: [base],
     scopes_supported: [SCOPE],
     bearer_methods_supported: ['header'],
-    resource_name: 'CAT Prep',
+    resource_name: 'mbaprep',
   })
 }
 
@@ -118,7 +118,7 @@ const esc = (s: string) =>
 
 function page(title: string, body: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)} — CAT Prep</title><style>
+<title>${esc(title)} — mbaprep</title><style>
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F9FAFB;color:#111827;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;padding:16px}
 .card{width:100%;max-width:400px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.05);padding:24px}
 h1{font-size:18px;margin:0 0 4px}p{color:#4B5563;margin:8px 0}.muted{color:#6B7280;font-size:12px}
@@ -186,9 +186,9 @@ export async function authorize(req: Req, res: Res) {
       page(
         'Allow access',
         `<h1>Connect ${esc(client.name)}?</h1>
-<p><b>${esc(client.name)}</b> wants to use your CAT Prep account <b>${esc(user.username)}</b>. It will be able to:</p>
+<p><b>${esc(client.name)}</b> wants to use your mbaprep account <b>${esc(user.username)}</b>. It will be able to:</p>
 <ul><li>save mocks you upload</li><li>read your mocks and their analysis</li></ul>
-<p class="muted">After you choose, you go back to ${esc(host)}. Not you? <a href="/">Open CAT Prep</a> and log out first.</p>
+<p class="muted">After you choose, you go back to ${esc(host)}. Not you? <a href="/">Open mbaprep</a> and log out first.</p>
 <form method="post" action="/oauth/authorize">${hidden}
 <div class="row"><button name="decision" value="deny">Deny</button><button class="primary" name="decision" value="allow">Allow</button></div></form>`,
       ),

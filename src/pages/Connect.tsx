@@ -80,15 +80,15 @@ export default function Connect() {
       <Card title="Connect claude.ai — 3 steps">
         <ol className="list-decimal space-y-3 pl-5 text-[13px] text-gray-800">
           <li>In Claude, open <b>Settings → Connectors → Add custom connector</b>.</li>
-          <li>Name it <b>CAT Prep</b>, paste the <b>MCP server URL</b> above, and click <b>Add</b>. Leave the advanced settings empty.</li>
-          <li>Click <b>Connect</b>, log in to CAT Prep if asked, and click <b>Allow</b>. Then turn the connector on in a chat.</li>
+          <li>Name it <b>mbaprep</b>, paste the <b>MCP server URL</b> above, and click <b>Add</b>. Leave the advanced settings empty.</li>
+          <li>Click <b>Connect</b>, log in to mbaprep if asked, and click <b>Allow</b>. Then turn the connector on in a chat.</li>
         </ol>
         <p className="mt-3 text-[12px] text-gray-500">No token to copy: Claude signs in for you. Disconnect any time in Claude’s connector settings.</p>
         <div className="mt-4 rounded-lg bg-gray-50 p-3 text-[12px] text-gray-600">
           <div className="mb-1 font-medium text-gray-800">Claude Code or MCP Inspector instead?</div>
           Use the token above as a header:
           <code className="mt-1 block break-all text-[11px]">
-            claude mcp add --transport http cat-prep {data.mcp_url} --header "Authorization: Bearer &lt;your token&gt;"
+            claude mcp add --transport http mbaprep {data.mcp_url} --header "Authorization: Bearer &lt;your token&gt;"
           </code>
         </div>
       </Card>
