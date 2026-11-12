@@ -98,6 +98,7 @@ export async function tagMistake(userId: number, rowId: number, typeTap: number,
   if (!r) return null
   const b = bucketOf(r, r.has_time_data)
   if (b !== 'incorrect' && b !== 'over_time') return { problem: 'Only wrong or over-time questions get A/B/C.' }
+  if (!(r.type_options?.length === 3 && r.approach_options?.length === 3)) return { problem: 'This question has no tap options yet: call add_review_options first.' }
   const tapped = { ...r, type_tap: typeTap, approach_tap: typeTap === r.type_answer ? approachTap : null }
   const abc = abcOf(tapped, r.has_time_data)
   if (abc === 'pending') return { problem: 'Tap 1 was right, so approach_tap is needed too.' }
@@ -147,6 +148,8 @@ export async function saveFix(userId: number, x: { attempt_id: number; what_went
 }
 
 // ---------- tests and retests ----------
+const NOT_SET = ['Not set yet', 'Not set yet', 'Not set yet']
+
 /** Mistakes that are not Fixed, each with a practice question to retest (made from the mock row if needed). */
 export async function prepareRetest(userId: number, topic?: string): Promise<number[]> {
   const open = (await mistakesWithFixes(userId, topic)).filter((m) => m.status !== 'Fixed')
@@ -159,8 +162,9 @@ export async function prepareRetest(userId: number, topic?: string): Promise<num
         `INSERT INTO practice_questions (user_id, topic, difficulty, text, options, correct_index, ideal_seconds, type_options, type_answer,
            approach_options, approach_answer, solution_notes, hints, source)
          VALUES ($1,$2,'medium',$3,$4,$5,$6,$7,$8,$9,$10,$11,'[]',$12) RETURNING id`,
-        [userId, r.topic, r.text, JSON.stringify(r.options), r.correct_index, r.ideal_seconds, JSON.stringify(r.type_options), r.type_answer,
-          JSON.stringify(r.approach_options), r.approach_answer, r.solution_notes, `Mistake from ${r.mock_name}`.slice(0, 200)])
+        [userId, r.topic, r.text, JSON.stringify(r.options), r.correct_index, r.ideal_seconds,
+          JSON.stringify(r.type_options?.length === 3 ? r.type_options : NOT_SET), r.type_options?.length === 3 ? r.type_answer : 0,
+          JSON.stringify(r.approach_options?.length === 3 ? r.approach_options : NOT_SET), r.approach_options?.length === 3 ? r.approach_answer : 0, r.solution_notes, `Mistake from ${r.mock_name}`.slice(0, 200)])
       pq = p.id
       await q('UPDATE questions SET practice_question_id = $1 WHERE id = ANY($2::int[])', [pq, m.row_ids])
     }

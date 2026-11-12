@@ -130,7 +130,9 @@ export async function nextMistake(userId: number, mockId?: number) {
     question: oneLine(r.text, 600), options: r.options.map((o) => oneLine(o, 120)),
     student_answer: r.chosen_index, correct_answer: r.correct_index, seconds: r.seconds, ideal_seconds: r.ideal_seconds,
     result: bucketOf(r, t) === 'incorrect' ? 'wrong' : 'right but slow',
-    tap_1: r.type_options, tap_2: r.approach_options,
+    ...(r.type_options.length === 3 && r.approach_options.length === 3
+      ? { tap_1: r.type_options, tap_2: r.approach_options }
+      : { needs_options: 'No tap questions yet: call add_review_options for this attempt_id first.' }),
     solution_notes: r.solution_notes ? oneLine(r.solution_notes, 300) : null,
     saved_fix: fix ? oneLine(fix.summary.replace(/\*\*/g, ''), 300) : null,
   }

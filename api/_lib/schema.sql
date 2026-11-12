@@ -170,3 +170,20 @@ CREATE TABLE IF NOT EXISTS note_versions (                                      
 );
 CREATE INDEX IF NOT EXISTS note_versions_note_idx ON note_versions(note_id, id DESC);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS exam_date DATE;                              -- for get_profile
+
+-- Mock papers uploaded in the app (safe to re-run). The browser extracts the PDF's text (plain text extraction,
+-- not AI) so Claude reads compact text instead of a whole PDF. The PDF itself is kept when it fits (≤ 3 MB).
+CREATE TABLE IF NOT EXISTS mock_uploads (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  section     TEXT CHECK (section IN ('Quant', 'VARC', 'DILR')),
+  pages       INTEGER NOT NULL,
+  page_texts  JSONB NOT NULL,           -- one string per page
+  pdf         BYTEA,                    -- null when over 3 MB (text only)
+  pdf_size    INTEGER NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'saved')),
+  mock_id     INTEGER REFERENCES mocks(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mock_uploads_user_idx ON mock_uploads(user_id, id DESC);

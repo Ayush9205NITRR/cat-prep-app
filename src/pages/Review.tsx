@@ -87,6 +87,9 @@ export default function Review() {
         </ul>
       </Card>
 
+      {r.type_options.length !== 3 || r.approach_options.length !== 3 ? (
+        <Card><p className="text-[13px] text-gray-700">The two tap questions for this one aren’t written yet. In Claude, say: <i>“Review my last mock”</i> — Claude adds them for wrong and slow questions only, then asks you the taps.</p></Card>
+      ) : <>
       <Card title="Tap 1 · Which type of question is this?">
         <Choices options={r.type_options} picked={r.type_tap} answer={r.type_answer} onPick={(i) => patchRow(r.id, { type_tap: i })} />
       </Card>
@@ -97,7 +100,9 @@ export default function Review() {
         </Card>
       )}
 
-      {finished && (
+      </>}
+
+      {finished && r.type_options.length === 3 && (
         <Card>
           <div className="mb-3 flex items-center gap-3">
             {abc ? (

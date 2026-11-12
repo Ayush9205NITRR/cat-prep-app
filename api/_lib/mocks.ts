@@ -16,11 +16,12 @@ export const RowInput = z.object({
   chosen_index: idx.nullable().describe('null = skipped'),
   seconds: z.number().int().min(0).nullable().optional(),
   ideal_seconds: z.number().int().min(1),
-  type_options: three.describe('Which type of question?'),
-  type_answer: z.number().int().min(0).max(2),
-  approach_options: three.describe('Fastest approach?'),
-  approach_answer: z.number().int().min(0).max(2),
-  solution_notes: z.string(),
+  // Optional when saving (speed): add later with add_review_options, only for wrong or slow questions.
+  type_options: three.optional().describe('Which type of question? Only needed for wrong/slow questions'),
+  type_answer: z.number().int().min(0).max(2).optional(),
+  approach_options: three.optional().describe('Fastest approach? Only needed for wrong/slow questions'),
+  approach_answer: z.number().int().min(0).max(2).optional(),
+  solution_notes: z.string().optional(),
 })
 export type RowInput = z.infer<typeof RowInput>
 
@@ -32,9 +33,14 @@ export const MockInput = {
   rows: z.array(RowInput).min(1).max(200),
 }
 
+/** Tap options are "not set yet" when saved without them ([] and -1). */
+export const hasTapOptions = (r: { type_options: unknown[]; approach_options: unknown[] }) => r.type_options?.length === 3 && r.approach_options?.length === 3
+
 /** Index checks zod cannot express per field. Returns a list of problems. */
-export function rowProblems(r: Pick<RowInput, 'q_no' | 'options' | 'correct_index' | 'chosen_index'>): string[] {
+export function rowProblems(r: Pick<RowInput, 'q_no' | 'options' | 'correct_index' | 'chosen_index'> & Partial<RowInput>): string[] {
   const p: string[] = []
+  if ((r.type_options === undefined) !== (r.type_answer === undefined) || (r.approach_options === undefined) !== (r.approach_answer === undefined))
+    p.push(`Q${r.q_no}: send tap options together with their answer index (or leave both out)`)
   if (r.correct_index >= r.options.length) p.push(`Q${r.q_no}: correct_index ${r.correct_index} is outside options`)
   if (r.chosen_index !== null && r.chosen_index >= r.options.length) p.push(`Q${r.q_no}: chosen_index ${r.chosen_index} is outside options`)
   return p
@@ -98,8 +104,8 @@ export async function createMock(
            type_tap, approach_tap, resolve_index, resolve_seconds, practice_question_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
         [id, r.q_no, r.topic, r.text, JSON.stringify(r.options), r.correct_index, r.chosen_index, r.seconds ?? null,
-          r.ideal_seconds, JSON.stringify(r.type_options), r.type_answer, JSON.stringify(r.approach_options),
-          r.approach_answer, r.solution_notes, r.type_tap ?? null, r.approach_tap ?? null, r.resolve_index ?? null,
+          r.ideal_seconds, JSON.stringify(r.type_options ?? []), r.type_answer ?? -1, JSON.stringify(r.approach_options ?? []),
+          r.approach_answer ?? -1, r.solution_notes ?? '', r.type_tap ?? null, r.approach_tap ?? null, r.resolve_index ?? null,
           r.resolve_seconds ?? null, r.practice_question_id ?? null],
       )
     }
@@ -171,4 +177,36 @@ export async function updateQuestion(userId: number, questionId: number, patch: 
 /** Deletes a mock or test with its rows. Fix notes stay on their topic (their link to the question is cleared). */
 export async function deleteMock(userId: number, mockId: number) {
   return (await q('DELETE FROM mocks WHERE id = $1 AND user_id = $2 RETURNING id', [mockId, userId])).length === 1
+}
+
+/** Appends rows to a saved mock (long papers are saved in parts). */
+export async function addRows(userId: number, mockId: number, rows: RowInput[]) {
+  const [m] = await q<{ id: number }>('SELECT id FROM mocks WHERE id = $1 AND user_id = $2', [mockId, userId])
+  if (!m) return null
+  const taken = new Set((await q<{ q_no: number }>('SELECT q_no FROM questions WHERE mock_id = $1', [mockId])).map((r) => r.q_no))
+  const dup = rows.filter((r) => taken.has(r.q_no)).map((r) => r.q_no)
+  if (dup.length) return { problem: `Already saved: Q${dup.join(', Q')}` }
+  const client = await db().connect()
+  try {
+    await client.query('BEGIN')
+    for (const r of rows)
+      await client.query(
+        `INSERT INTO questions (mock_id, q_no, topic, text, options, correct_index, chosen_index, seconds, ideal_seconds,
+           type_options, type_answer, approach_options, approach_answer, solution_notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [mockId, r.q_no, r.topic, r.text, JSON.stringify(r.options), r.correct_index, r.chosen_index, r.seconds ?? null, r.ideal_seconds,
+          JSON.stringify(r.type_options ?? []), r.type_answer ?? -1, JSON.stringify(r.approach_options ?? []), r.approach_answer ?? -1, r.solution_notes ?? ''])
+    await client.query('COMMIT')
+  } catch (e) { await client.query('ROLLBACK'); throw e } finally { client.release() }
+  return { added: rows.length }
+}
+
+/** Claude adds the two tap questions (and a solution) for one wrong or slow question, when reviewing it. */
+export async function setReviewOptions(userId: number, rowId: number, x: { type_options: string[]; type_answer: number; approach_options: string[]; approach_answer: number; solution_notes?: string }) {
+  const r = await q<{ id: number }>(
+    `UPDATE questions qn SET type_options = $3, type_answer = $4, approach_options = $5, approach_answer = $6,
+       solution_notes = COALESCE(NULLIF($7, ''), qn.solution_notes)
+     FROM mocks m WHERE m.id = qn.mock_id AND qn.id = $1 AND m.user_id = $2 RETURNING qn.id`,
+    [rowId, userId, JSON.stringify(x.type_options), x.type_answer, JSON.stringify(x.approach_options), x.approach_answer, x.solution_notes ?? ''])
+  return r.length === 1
 }

@@ -43,6 +43,8 @@ export interface TopicData {
 }
 export type DueCard = Card & { title: string; topic: string; kind: string; fix_row_id: number | null; fix_mock_id: number | null }
 
+export interface MockUploadItem { id: number; name: string; section: string | null; pages: number; chars: number | null; pdf_kept: boolean; status: 'new' | 'saved'; mock_id: number | null }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
@@ -71,6 +73,10 @@ export const api = {
   mock: (id: number) => call<MockData>('GET', `/api/mocks?id=${id}`),
   updateMock: (id: number, patch: Partial<MockMeta>) => call<MockData>('PATCH', `/api/mocks?id=${id}`, patch),
   deleteMock: (id: number) => call('DELETE', `/api/mocks?id=${id}`),
+  mockUploads: () => call<{ uploads: MockUploadItem[] }>('GET', '/api/mocks?view=uploads'),
+  uploadMock: (x: { name: string; section: string | null; page_texts: string[]; pdf_size: number; pdf_base64?: string }) =>
+    call<{ id: number; pages: number; chars: number }>('POST', '/api/mocks?view=upload', x),
+  deleteMockUpload: (id: number) => call('DELETE', `/api/mocks?view=upload&id=${id}`),
   updateQuestion: (id: number, patch: Partial<QuestionRow>) =>
     call<{ row: QuestionRow & { id: number } }>('PATCH', `/api/questions?id=${id}`, patch),
   // Tier 2

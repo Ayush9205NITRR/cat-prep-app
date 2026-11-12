@@ -6,7 +6,8 @@ import { resolveTopic, SECTION_NAMES, SECTIONS } from '../../shared/topics'
 import type { User } from './auth'
 import { markFileRead, nextMistake, noteFull, oneLine, page, profile, rewriteNote, topicDigest, type Include } from './claude'
 import { q } from './db'
-import { createMock, getMock, MockInput, rowProblems } from './mocks'
+import { addRows, createMock, getMock, MockInput, RowInput, rowProblems, setReviewOptions } from './mocks'
+import { markUploadSaved, readUpload } from './uploads'
 import { NotesInput, saveNotes, updateCard } from './notes'
 import { forSolving, nextQuestion, problems, QuestionInput, saveQuestion, setTaps, submitAnswer, topicHistory } from './practice'
 import { FixInput, prepareRetest, saveFix, tagMistake } from './topics'
@@ -16,7 +17,7 @@ import { FixInput, prepareRetest, saveFix, tagMistake } from './topics'
 const TOPIC_LIST = SECTION_NAMES.map((s) => `${s}: ${Object.values(SECTIONS[s]).flat().join('; ')}`).join('\n')
 export const INSTRUCTIONS = [
   '1. Read every question in the upload. Map each to one allowed topic; if unsure, ask the student.',
-  '2. Estimate `ideal_seconds` for each question and write 3 type options and 3 approach options with the right one marked.',
+  '2. Estimate `ideal_seconds` for each question and write 3 type options and 3 approach options with the right one marked — only for wrong or slow questions; for the rest leave them out (add them later with `add_review_options`).',
   '3. After saving, tell the student what you read (count, anything unreadable) and give the app link so they can correct it.',
   '4. Do not grade or analyse yourself; use `get_report`.',
   '5. After a test or mock, call `get_report`, then go through the wrong questions one at a time: ask tap 1 and tap 2, call `tag_mistake`, explain where the thinking went wrong and the faster way, then call `save_fix`.',
@@ -26,6 +27,7 @@ export const INSTRUCTIONS = [
   '9. Use `get_topic` before `get_note`; open a full note only when needed.',
   '10. Walk mistakes with `next_mistake` (one at a time). Reuse its `solution_notes` or `saved_fix` instead of writing a new explanation.',
   '11. Explanations follow "Where it went wrong · Faster way · Rule", 80 words max.',
+  '12. For a mock uploaded in the app: read it with `get_mock_upload` (follow next_page), then `save_mock` with upload_id and at most 30 rows, and `add_mock_rows` for the rest. For right-and-in-time questions a one-line question text is enough.',
   '',
   'Topics (use these exact names):',
   TOPIC_LIST,
@@ -50,8 +52,8 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
   const topicLink = (t: string) => `${appUrl}/topic/${encodeURIComponent(t)}`
 
   // ---------------- Mocks and tests ----------------
-  server.registerTool('save_mock', { title: 'Save a mock', description: 'Save an uploaded mock, one row per question. Returns mock_id, score and the app link.', inputSchema: MockInput },
-    async ({ name, taken_on, has_time_data, section, rows }) => {
+  server.registerTool('save_mock', { title: 'Save a mock', description: 'Save a mock, one row per question (≤30 here; add_mock_rows for the rest). Tap options only for wrong/slow questions.', inputSchema: { ...MockInput, rows: MockInput.rows.max(60), upload_id: z.number().int().min(1).optional().describe('From get_mock_upload') } },
+    async ({ name, taken_on, has_time_data, section, rows, upload_id }) => {
       const bt = badTopics(rows.map((r) => r.topic))
       if (bt) return bt
       const problems = rows.flatMap(rowProblems)
@@ -62,9 +64,54 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
         problems.push('has_time_data is true but some attempted rows have no seconds')
       if (problems.length) return error('Nothing saved. Fix these and call save_mock again:\n- ' + problems.join('\n- '))
       const id = await createMock(user.id, { name, taken_on, has_time_data, section }, rows.map(fixTopic) as any)
+      if (upload_id) await markUploadSaved(user.id, upload_id, id)
       const r = analyse((await getMock(user.id, id))!.rows, has_time_data)
       return text({ mock_id: id, saved: rows.length, score: r.score, max: r.max_score, app_link: `${appUrl}/mocks/${id}` })
     })
+
+  server.registerTool('get_mock_upload', {
+    title: 'Read an uploaded mock',
+    description: 'Text of a mock paper the student uploaded in the app (default: the latest unread one), a chunk of pages at a time.',
+    inputSchema: { upload_id: z.number().int().min(1).optional(), from_page: z.number().int().min(1).optional() },
+  }, async ({ upload_id, from_page }) => {
+    const r = await readUpload(user.id, upload_id, from_page)
+    if (!r) return error(upload_id ? `No upload ${upload_id} for this account.` : 'No unread mock uploads. Ask the student to upload the PDF in the app (Mocks & Tests → Upload mock PDF).')
+    const u = r.upload
+    const head = { upload_id: u.id, name: u.name, section: u.section, pages: u.pages, status: u.status }
+    if ('chunk' in r) return text({ ...head, ...r.chunk, next: r.chunk!.next_page ? 'Call again with from_page = next_page.' : 'All pages read. Save with save_mock (upload_id) and add_mock_rows.' })
+    if (!r.pdf) return error('This upload has no text and no stored PDF.')
+    return { content: [
+      { type: 'text' as const, text: JSON.stringify({ ...head, note: 'Scanned PDF (no text layer): read the attached PDF.' }) },
+      { type: 'resource' as const, resource: { uri: `${appUrl}/mocks?upload=${u.id}`, mimeType: 'application/pdf', blob: r.pdf.toString('base64') } },
+    ] }
+  })
+
+  server.registerTool('add_mock_rows', {
+    title: 'Add rows to a mock',
+    description: 'Append more questions to a saved mock (long papers are saved in parts, ≤30 rows per call).',
+    inputSchema: { mock_id: z.number().int().min(1), rows: z.array(RowInput).min(1).max(60) },
+  }, async ({ mock_id, rows }) => {
+    const bt = badTopics(rows.map((r) => r.topic))
+    if (bt) return bt
+    const problems = rows.flatMap(rowProblems)
+    if (problems.length) return error('Nothing saved:\n- ' + problems.join('\n- '))
+    const r = await addRows(user.id, mock_id, rows.map(fixTopic) as any)
+    if (!r) return error(`No mock ${mock_id} for this account.`)
+    if ('problem' in r) return error(r.problem as string)
+    const m = analyse((await getMock(user.id, mock_id))!.rows, true)
+    return text({ mock_id, added: r.added, total_rows: m.counts.total, score: m.score, app_link: `${appUrl}/mocks/${mock_id}` })
+  })
+
+  server.registerTool('add_review_options', {
+    title: 'Add tap questions to a mistake',
+    description: 'For one wrong/slow question saved without them: the 3 type options, 3 approach options (right ones marked) and a short solution.',
+    inputSchema: {
+      attempt_id: z.number().int().min(1),
+      type_options: z.array(z.string().min(1)).length(3), type_answer: z.number().int().min(0).max(2),
+      approach_options: z.array(z.string().min(1)).length(3), approach_answer: z.number().int().min(0).max(2),
+      solution_notes: z.string().max(1500).optional(),
+    },
+  }, async ({ attempt_id, ...x }) => (await setReviewOptions(user.id, attempt_id, x)) ? text({ attempt_id, ok: true, next: 'Ask tap 1 and tap 2, then tag_mistake.' }) : error(`No question ${attempt_id} for this account.`))
 
   server.registerTool('get_report', {
     title: 'Mock or test report',
