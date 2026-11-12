@@ -21,6 +21,9 @@ function GoogleIcon() {
   )
 }
 
+/** The public reviewer account (also printed by the seed and in the README). */
+const REVIEWER = { username: 'reviewer', password: 'cat-review-2026' }
+
 export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [username, setUsername] = useState('')
@@ -42,6 +45,16 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
     const err = new URLSearchParams(window.location.search).get('error')
     if (err) setError(GOOGLE_ERRORS[err] ?? 'Google sign-in failed. Try again.')
   }, [])
+
+  async function reviewerLogin() {
+    setBusy(true); setError('')
+    try {
+      const r = await api.login(REVIEWER.username, REVIEWER.password)
+      if (next) return window.location.assign(next) // connecting Claude: back to the Allow page
+      onLogin(r.user)
+      navigate('/section/Quant', { replace: true })
+    } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -100,7 +113,16 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
             </>
           )}
         </form>}
-        <p className="mt-4 text-center text-[11.5px] text-gray-400">Reviewer? Use a username and password: <b className="font-medium text-gray-500">demo</b></p>
+        {/* For the people reviewing this assignment: one click into the pre-filled account (its login is public by design). */}
+        <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 text-center">
+          <div className="text-[13px] font-semibold text-indigo-900">Reviewing this app?</div>
+          <div className="mt-0.5 text-[12px] text-indigo-800/80">A demo account with every feature already filled in.</div>
+          <button type="button" disabled={busy} onClick={reviewerLogin}
+            className="mt-3 w-full rounded-xl bg-indigo-600 py-2.5 text-[14px] font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-50">
+            {busy ? 'Opening…' : next ? 'Use the demo account' : 'Open the demo account'}
+          </button>
+          <div className="mt-2 text-[11.5px] text-indigo-800/70">or log in with <code className="rounded bg-white/70 px-1">{REVIEWER.username}</code> / <code className="rounded bg-white/70 px-1">{REVIEWER.password}</code></div>
+        </div>
       </div>
     </div>
   )
