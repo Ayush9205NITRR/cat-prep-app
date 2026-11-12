@@ -3,6 +3,9 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ABC_LABEL, abcOf, bucketOf, needsReview, statusOf } from '../../shared/analysis'
 import { Back, btnGhost, btnPrimary, Card, ErrorNote, fmtSeconds, Loading, optionLabel } from '../ui'
 import { useMock } from '../useMock'
+import CopyPrompt from '../components/CopyPrompt'
+
+export const FIXES_PROMPT = 'Write fixes for my reviewed mistakes in mbaprep: call pending_fixes, then save all of them with one save_fixes call. Keep each fix to 80 words.'
 
 function Choices({ options, picked, answer, onPick }: { options: string[]; picked: number | null; answer: number; onPick?: (i: number) => void }) {
   return (
@@ -129,6 +132,10 @@ export default function Review() {
             Redo the taps
           </button>
         </Card>
+      )}
+
+      {left === 0 && (
+        <CopyPrompt title="All tapped. Get every fix from Claude in one go (fastest):" prompt={FIXES_PROMPT} />
       )}
 
       <div className="flex justify-between">

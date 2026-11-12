@@ -137,3 +137,28 @@ export async function nextMistake(userId: number, mockId?: number) {
     saved_fix: fix ? oneLine(fix.summary.replace(/\*\*/g, ''), 300) : null,
   }
 }
+
+// ---------- Faster mistake reviews (fewer Claude round trips) ----------
+/** Wrong/slow questions the student already tapped (in the app or chat) that have no fix note yet. Compact, ≤10. */
+export async function pendingFixes(userId: number, mockId?: number) {
+  const [m] = mockId ? [{ id: mockId }] : await q<{ id: number }>('SELECT id FROM mocks WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1', [userId])
+  if (!m) return { problem: 'No mocks or tests yet.' }
+  const data = await getMock(userId, m.id)
+  if (!data) return { problem: `No mock ${m.id} for this account.` }
+  const t = data.mock.has_time_data
+  const fixed = new Set((await q<{ fix_row_id: number }>("SELECT fix_row_id FROM notes WHERE user_id = $1 AND kind = 'fix' AND fix_row_id IS NOT NULL", [userId])).map((r) => r.fix_row_id))
+  const flagged = data.rows.filter((r) => { const b = bucketOf(r, t); return b === 'incorrect' || b === 'over_time' })
+  const todo = flagged.filter((r) => abcOf(r, t) !== 'pending' && !fixed.has(r.id!))
+  const untapped = flagged.filter((r) => abcOf(r, t) === 'pending').length
+  return {
+    mock_id: m.id, need_fix: todo.length, not_tapped_yet: untapped,
+    items: todo.slice(0, 5).map((r) => ({
+      // Only the two answers that matter for a fix, as text (not all options): keeps the list small.
+      attempt_id: r.id!, topic: r.topic, q: oneLine(r.text, 90),
+      you: r.chosen_index === null ? 'skipped' : oneLine(r.options[r.chosen_index] ?? '', 40), right: oneLine(r.options[r.correct_index] ?? '', 40),
+      s: r.seconds, ideal: r.ideal_seconds,
+      error: abcOf(r, t) ?? 'slow (no letter)', solution: r.solution_notes ? oneLine(r.solution_notes, 80) : null,
+    })),
+    next: todo.length ? (todo.length > 5 ? 'Write these fixes, one save_fixes call, then pending_fixes again for the rest.' : 'Write all fixes, then one save_fixes call.') : untapped ? 'Ask the student to tap the rest in the app (Review), or review them here with review_mistake.' : 'All done. Offer start_retest.',
+  }
+}

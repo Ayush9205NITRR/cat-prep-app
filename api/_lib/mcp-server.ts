@@ -4,7 +4,7 @@ import { ABC_LABEL, abcOf, analyse, bucketOf } from '../../shared/analysis'
 import { DIFFICULTIES } from '../../shared/practice'
 import { resolveTopic, SECTION_NAMES, SECTIONS } from '../../shared/topics'
 import type { User } from './auth'
-import { markFileRead, nextMistake, noteFull, oneLine, page, profile, rewriteNote, topicDigest, type Include } from './claude'
+import { markFileRead, nextMistake, noteFull, oneLine, page, pendingFixes, profile, rewriteNote, topicDigest, type Include } from './claude'
 import { q } from './db'
 import { addRows, createMock, getMock, MockInput, RowInput, rowProblems, setReviewOptions } from './mocks'
 import { inbox, markUploadSaved, readUpload } from './uploads'
@@ -20,12 +20,12 @@ export const INSTRUCTIONS = [
   '2. Estimate `ideal_seconds` for each question and write 3 type options and 3 approach options with the right one marked — only for wrong or slow questions; for the rest leave them out (add them later with `add_review_options`).',
   '3. After saving, tell the student what you read (count, anything unreadable) and give the app link so they can correct it.',
   '4. Do not grade or analyse yourself; use `get_report`.',
-  '5. After a test or mock, call `get_report`, then go through the wrong questions one at a time: ask tap 1 and tap 2, call `tag_mistake`, explain where the thinking went wrong and the faster way, then call `save_fix`.',
+  '5. After a test or mock (fastest first): if the student tapped in the app, call `pending_fixes` once and then ONE `save_fixes` for all. Otherwise call `next_mistake` once, then per mistake ask tap 1 and tap 2, explain, and call `review_mistake` (it tags, saves the fix and returns the next mistake) — one call per mistake, never tag_mistake + save_fix + next_mistake separately.',
   '6. Keep each explanation short. Do not solve the next question for the student.',
   '7. At the end, offer `start_retest`.',
   '8. At the start of a study chat, call `get_profile` once and use it to choose how to explain (e.g. analogy first if that is how the student learns).',
   '9. Use `get_topic` before `get_note`; open a full note only when needed.',
-  '10. Walk mistakes with `next_mistake` (one at a time). Reuse its `solution_notes` or `saved_fix` instead of writing a new explanation.',
+  '10. Reuse a result’s `solution_notes`/`solution` or `saved_fix` instead of writing a new explanation. Show the next question and its tap options in the same message as the explanation.',
   '11. Explanations follow "Where it went wrong · Faster way · Rule", 80 words max.',
   '12. For a mock uploaded in the app: read it with `get_mock_upload` (follow next_page), then `save_mock` with upload_id and at most 30 rows, and `add_mock_rows` for the rest. For right-and-in-time questions a one-line question text is enough.',
   '13. When the student sends several files or asks to process the inbox: call `get_inbox`, then finish ONE item at a time (read it, save it, give its app link) before opening the next. Never read all files first. If files are attached in chat instead, still do them one by one and give each link as soon as it is saved.',
@@ -172,6 +172,39 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
   }, async ({ mock_id }) => {
     const r = await nextMistake(user.id, mock_id)
     return 'problem' in r ? error(r.problem as string) : text(r)
+  })
+
+  const FixFields = { what_went_wrong: FixInput.what_went_wrong, correct_approach: FixInput.correct_approach, rule_to_remember: FixInput.rule_to_remember, make_flashcard: FixInput.make_flashcard }
+
+  server.registerTool('review_mistake', {
+    title: 'Tag + fix + next, in one call',
+    description: 'For one mistake: record the two taps, save the fix note (and card), and get the next mistake back. Use instead of tag_mistake + save_fix + next_mistake.',
+    inputSchema: { attempt_id: z.number().int().min(1), type_tap: z.number().int().min(0).max(2), approach_tap: z.number().int().min(0).max(2).optional(), ...FixFields },
+  }, async ({ attempt_id, type_tap, approach_tap, ...fix }) => {
+    const t = await tagMistake(user.id, attempt_id, type_tap, approach_tap ?? null)
+    if (!t) return error(`No question ${attempt_id} for this account.`)
+    if ('problem' in t) return error(t.problem as string)
+    const f = await saveFix(user.id, { attempt_id, ...fix })
+    const [row] = await q<{ mock_id: number }>('SELECT mock_id FROM questions WHERE id = $1', [attempt_id])
+    const n = await nextMistake(user.id, row?.mock_id)
+    return text({ error_class: t.error_class, meaning: t.error_class ? ABC_LABEL[t.error_class] : 'slow, no letter', repeat: t.repeat, note_id: f?.note_id, next: 'problem' in n ? null : n })
+  })
+
+  server.registerTool('pending_fixes', {
+    title: 'Tapped mistakes needing a fix',
+    description: 'Mistakes the student already tapped (e.g. in the app) without a fix note yet, with their A/B/C (default: latest mock/test). Then one save_fixes call.',
+    inputSchema: { mock_id: z.number().int().min(1).optional() },
+  }, async ({ mock_id }) => { const r = await pendingFixes(user.id, mock_id); return 'problem' in r ? error(r.problem as string) : text(r) })
+
+  server.registerTool('save_fixes', {
+    title: 'Save many fix notes',
+    description: 'Save fix notes (and cards) for up to 20 mistakes in one call.',
+    inputSchema: { fixes: z.array(z.object({ attempt_id: z.number().int().min(1), ...FixFields })).min(1).max(20) },
+  }, async ({ fixes }) => {
+    const saved: { attempt_id: number; note_id: number }[] = [], missing: number[] = []
+    const topics = new Set<string>()
+    for (const x of fixes) { const r = await saveFix(user.id, x); if (r) { saved.push({ attempt_id: x.attempt_id, note_id: r.note_id }); topics.add(r.topic) } else missing.push(x.attempt_id) }
+    return text({ saved: saved.length, ...(missing.length ? { not_found: missing } : {}), topics: [...topics].map((t) => ({ topic: t, link: topicLink(t) })), next: 'Offer start_retest.' })
   })
 
   server.registerTool('tag_mistake', {
