@@ -110,6 +110,20 @@ Put the client ID and secret in Vercel as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_
 appears once both are set. A Google login with an email that a password account already uses as its username gets
 its own new account; it never takes over the existing one.
 
+## Reset an account's content
+
+```bash
+npm run db:reset-demo
+```
+```bash
+npm run db:reset-demo -- reviewer
+```
+
+Deletes all content of one user (default `demo`) in a single transaction: mocks, tests and their rows (with review taps),
+saved questions, practice attempts, notes (incl. fix notes, files, previous versions) and flashcards with their review
+state. Prints the rows deleted per table. The account, password and MCP token stay the same. Note: the production
+seed refills `demo` with its sample data when it is missing, so after a reset `demo` stays empty only until the next deploy.
+
 ## Local development
 
 Needs Node 22 or newer (Vercel builds with Node 26). Run `neon env pull` (or copy `.env.example` to `.env` and point it at any Postgres) and add `SESSION_SECRET`, then:

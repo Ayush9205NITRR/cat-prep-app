@@ -12,7 +12,8 @@
     "test": "vitest run",
     "db:migrate": "tsx scripts/migrate.mts",
     "db:seed": "tsx scripts/seed.mts",
-    "vercel-build": "node scripts/vercel-build.mjs"
+    "vercel-build": "node scripts/vercel-build.mjs",
+    "db:reset-demo": "tsx scripts/reset-demo.mts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
