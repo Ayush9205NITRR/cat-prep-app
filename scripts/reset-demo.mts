@@ -13,6 +13,7 @@ try {
   const uid = user.id
   // Children before parents, so each count is that table's own rows (not hidden cascades).
   const steps: [string, string][] = [
+    ['mock_uploads (inbox: uploaded mocks, assignments, notes)', 'DELETE FROM mock_uploads WHERE user_id = $1'],
     ['flashcards (cards and their review state)', 'DELETE FROM flashcards WHERE user_id = $1'],
     ['note_versions', 'DELETE FROM note_versions WHERE user_id = $1'],
     ['note_files', 'DELETE FROM note_files WHERE user_id = $1'],
