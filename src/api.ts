@@ -33,7 +33,7 @@ export interface Card { id: number; note_id: number; front: string; back: string
 
 export interface TopicStats { notes: number; questions: number; due: number; open: number; fixed: number; repeated: number; last_test: string | null }
 export interface MistakeItem {
-  status: 'Open' | 'Fixed' | 'Repeated'; error: 'A' | 'B' | 'C' | 'not reviewed' | null; times_wrong: number
+  status: 'Open' | 'Fixed' | 'Repeated'; error: 'A' | 'B' | 'C' | 'not reviewed' | null; times_wrong: number; times_fixed: number
   row_id: number; mock_id: number; mock_name: string; text: string; options: string[]; chosen_index: number | null; correct_index: number
   seconds: number | null; ideal_seconds: number; over_time: boolean; fix: { note_id: number; title: string; summary: string } | null
 }
@@ -46,6 +46,8 @@ export type DueCard = Card & { title: string; topic: string; kind: string; fix_r
 export interface MockUploadItem { id: number; kind: 'mock' | 'assignment' | 'notes'; mime: string; result_link: string | null; name: string; section: string | null; pages: number; chars: number | null; pdf_kept: boolean; status: 'new' | 'saved'; mock_id: number | null }
 
 export interface HomeData {
+  mocks_count: number; tests_count: number
+  session: { due: number; open: number; weakest: { topic: string; questions: number } | null }
   exam_date: string | null; days_left: number | null; due_today: number; open_mistakes: number; fixed_mistakes: number; repeated: number
   active_topics: { topic: string; section: string; open: number; repeated: number; fixed: number; due: number }[]
   recent_mocks: { id: number; name: string; taken_on: string; section: string | null; source: string; score: number; reachable: number; max: number }[]
@@ -114,14 +116,14 @@ export const api = {
     call<{ id: number; kind: string }>('POST', '/api/notes?view=create', x),
   fileUrl: (id: number) => `/api/notes?view=file&id=${id}`,
   dueCards: (topic?: string) => call<{ cards: DueCard[] }>('GET', `/api/notes?view=due${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),
-  reviewCard: (id: number, right: boolean) => call<{ card: Card; due_in_days: number }>('POST', `/api/notes?view=review&id=${id}`, { right }),
+  reviewCard: (id: number, grade: 'again' | 'hard' | 'good' | 'easy') => call<{ card: Card; due_in_days: number }>('POST', `/api/notes?view=review&id=${id}`, { grade }),
   // FIXES round 1
   home: () => call<HomeData>('GET', '/api/topics?view=home'),
   topicsSummary: () => call<{ topics: Record<string, TopicStats> }>('GET', '/api/topics?view=summary'),
   topic: (t: string) => call<TopicData>('GET', `/api/topics?view=topic&topic=${encodeURIComponent(t)}`),
   testQuestions: (scope: { section?: string; area?: string; topic?: string }, count: number) =>
     call<{ questions: SolvingQuestion[] }>('GET', `/api/topics?view=test&count=${count}${Object.entries(scope).filter(([, v]) => v).map(([k, v]) => `&${k}=${encodeURIComponent(v!)}`).join('')}`),
-  retestQuestions: (topic?: string) => call<{ questions: SolvingQuestion[] }>('GET', `/api/topics?view=retest${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),
+  retestQuestions: (topic?: string, limit?: number) => call<{ questions: SolvingQuestion[] }>('GET', `/api/topics?view=retest${topic ? `&topic=${encodeURIComponent(topic)}` : ''}${limit ? `&limit=${limit}` : ''}`),
   submitTest: (kind: 'test' | 'retest', scope: string, answers: { question_id: number; chosen_index: number | null; seconds: number }[]) =>
     call<{ mock_id: number }>('POST', '/api/topics?view=submit', { kind, scope, answers }),
   retestOutcome: (mockId: number) => call<{ retested: number; fixed: number; still_open: number }>('GET', `/api/topics?view=outcome&mock_id=${mockId}`),

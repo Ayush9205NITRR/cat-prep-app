@@ -81,7 +81,7 @@ export async function topicPage(userId: number, topic: string) {
 function slimMistake(m: Mistake & { fix: FixNote | null }) {
   const r = m.row
   return {
-    status: m.status, error: m.error, times_wrong: m.times_wrong,
+    status: m.status, error: m.error, times_wrong: m.times_wrong, times_fixed: m.times_fixed,
     row_id: r.id, mock_id: r.mock_id, mock_name: r.mock_name, text: r.text, options: r.options,
     chosen_index: r.chosen_index, correct_index: r.correct_index, seconds: r.seconds, ideal_seconds: r.ideal_seconds,
     over_time: bucketOf(r, r.has_time_data) === 'over_time',
@@ -168,7 +168,7 @@ export async function prepareRetest(userId: number, topic?: string): Promise<num
       pq = p.id
       await q('UPDATE questions SET practice_question_id = $1 WHERE id = ANY($2::int[])', [pq, m.row_ids])
     }
-    ids.push(pq)
+    if (!ids.includes(pq)) ids.push(pq) // never the same question twice in one retest
   }
   return ids
 }
@@ -187,7 +187,7 @@ export async function pickQuestions(userId: number, topics: string[], count: num
 export async function questionsForSolving(userId: number, ids: number[]) {
   const rows = await q<PracticeQuestion>(
     `SELECT id, topic, difficulty, text, options, ideal_seconds FROM practice_questions WHERE user_id = $1 AND id = ANY($2::int[])`, [userId, ids])
-  return ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean).map((r) => forSolving(r as PracticeQuestion))
+  return [...new Set(ids)].map((id) => rows.find((r) => r.id === id)).filter(Boolean).map((r) => forSolving(r as PracticeQuestion))
 }
 
 export const SubmitTest = z.object({
@@ -235,7 +235,8 @@ export async function homeData(userId: number) {
   const [[u], summary, mocks] = await Promise.all([
     q<{ exam_date: string | null; days: number | null }>(`SELECT to_char(exam_date, 'YYYY-MM-DD') AS exam_date, (exam_date - ${TODAY}) AS days FROM users WHERE id = $1`, [userId]),
     topicsSummary(userId),
-    q<{ id: number }>(`SELECT id FROM mocks WHERE user_id = $1 ORDER BY taken_on DESC, id DESC LIMIT 8`, [userId]),
+    // Full and sectional mocks only; topic tests and retests are counted separately.
+    q<{ id: number }>(`SELECT id FROM mocks WHERE user_id = $1 AND source = 'mock' ORDER BY taken_on DESC, id DESC LIMIT 8`, [userId]),
   ])
   const topics = Object.entries(summary)
   const sum = (k: 'due' | 'open' | 'fixed' | 'repeated') => topics.reduce((n, [, t]) => n + t[k], 0)
@@ -252,7 +253,14 @@ export async function homeData(userId: number) {
     const r = analyse(m.rows, m.mock.has_time_data)
     recent.push({ id, name: m.mock.name, taken_on: m.mock.taken_on, section: m.mock.section, source: m.mock.source, score: r.score, reachable: r.reachable_score, max: r.max_score })
   }
+  const [counts] = await q<{ mocks: number; tests: number }>(
+    `SELECT count(*) FILTER (WHERE source = 'mock')::int AS mocks, count(*) FILTER (WHERE source <> 'mock')::int AS tests FROM mocks WHERE user_id = $1`, [userId])
+  // Today's Session: the weakest topic that has saved questions to drill.
+  const drillable = topics.filter(([, t]) => t.questions > 0)
+    .sort(([, a], [, b]) => b.open + b.repeated - (a.open + a.repeated) || b.due - a.due || b.questions - a.questions)[0]
   return {
+    mocks_count: counts.mocks, tests_count: counts.tests,
+    session: { due: sum('due'), open: sum('open'), weakest: drillable ? { topic: drillable[0], questions: drillable[1].questions } : null },
     exam_date: u?.exam_date ?? null, days_left: u?.days ?? null,
     due_today: sum('due'), open_mistakes: sum('open'), fixed_mistakes: sum('fixed'), repeated: sum('repeated'),
     active_topics: active, recent_mocks: recent.reverse(), // oldest → newest for the chart

@@ -153,7 +153,7 @@ export default function ReportPanel({ report: r, mockId }: { report: Report; moc
                 {r.time_delta.map((t) => (
                   <tr key={t.q_no} className="border-b border-gray-50">
                     <td className="py-1 pr-2 tabular-nums text-gray-500">{t.q_no}</td>
-                    <td className="py-1 pr-2">{t.topic}</td>
+                    <td className="py-1 pr-2"><Link className="text-indigo-700 hover:underline" to={`/topic/${encodeURIComponent(t.topic)}`}>{t.topic}</Link></td>
                     <td className="py-1 pr-2 text-right tabular-nums">{fmtSeconds(t.seconds)}</td>
                     <td className="py-1 pr-2 text-right tabular-nums text-gray-500">{fmtSeconds(t.ideal_seconds)}</td>
                     <td className={`py-1 text-right font-medium tabular-nums ${t.delta > 0 ? 'text-red-600' : 'text-emerald-700'}`}>

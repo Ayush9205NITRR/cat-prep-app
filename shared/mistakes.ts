@@ -27,20 +27,46 @@ export interface Mistake {
   /** Every row id of this question, for finding its fix note. */
   row_ids: number[]
   practice_question_id: number | null
+  /** Times answered wrong or too slowly. */
   times_wrong: number
+  /** Times answered right within the ideal time after a mistake. */
+  times_fixed: number
 }
 
 const order = (a: HistoryRow, b: HistoryRow) => a.mock_created_at.localeCompare(b.mock_created_at) || a.id - b.id
 const isMistake = (r: HistoryRow) => { const b = bucketOf(r, r.has_time_data); return b === 'incorrect' || b === 'over_time' }
+const rightInTime = (r: HistoryRow) => r.chosen_index !== null && r.chosen_index === r.correct_index && (r.seconds === null || r.seconds <= r.ideal_seconds)
+
+/** Question text that is long enough to identify a question (short one-liners like "Q3" are not). */
+export const MIN_TEXT_FOR_MATCH = 25
+const textKey = (r: HistoryRow) => {
+  const t = r.text.toLowerCase().replace(/\s+/g, ' ').trim()
+  return t.length >= MIN_TEXT_FOR_MATCH ? `${r.topic}\u0000${t}` : null
+}
+
+/**
+ * Groups rows of the same question: same saved question (practice_question_id) OR the same topic and
+ * the same long-enough text (the same question in a mock and in a later test). Union-find over both links.
+ */
+export function groupSameQuestion(rows: HistoryRow[]): HistoryRow[][] {
+  const parent = new Map<number, number>()
+  const find = (x: number): number => { const p = parent.get(x)!; if (p === x) return x; const r = find(p); parent.set(x, r); return r }
+  const union = (a: number, b: number) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb) }
+  for (const r of rows) parent.set(r.id, r.id)
+  const byPq = new Map<number, number>(), byText = new Map<string, number>()
+  for (const r of rows) {
+    if (r.practice_question_id) { const o = byPq.get(r.practice_question_id); if (o === undefined) byPq.set(r.practice_question_id, r.id); else union(r.id, o) }
+    const t = textKey(r)
+    if (t) { const o = byText.get(t); if (o === undefined) byText.set(t, r.id); else union(r.id, o) }
+  }
+  const groups = new Map<number, HistoryRow[]>()
+  for (const r of rows) { const k = find(r.id); groups.set(k, [...(groups.get(k) ?? []), r]) }
+  return [...groups.values()].map((g) => g.sort(order))
+}
 
 export function mistakesFrom(rows: HistoryRow[]): Mistake[] {
-  const groups = new Map<string, HistoryRow[]>()
-  for (const r of [...rows].sort(order)) {
-    const k = r.practice_question_id ? `q${r.practice_question_id}` : `r${r.id}`
-    groups.set(k, [...(groups.get(k) ?? []), r])
-  }
   const out: Mistake[] = []
-  for (const [key, g] of groups) {
+  for (const g of groupSameQuestion(rows)) {
     const first = g.findIndex(isMistake)
     if (first < 0) continue
     const mistakes = g.filter(isMistake)
@@ -53,10 +79,12 @@ export function mistakesFrom(rows: HistoryRow[]): Mistake[] {
       else if (last.seconds === null || last.seconds <= last.ideal_seconds) status = 'Fixed'
     }
     const abc = abcOf(latestMistake, latestMistake.has_time_data)
+    const pq = g.find((r) => r.practice_question_id)?.practice_question_id ?? null
     out.push({
-      key, status, topic: latestMistake.topic, row: latestMistake,
+      key: pq ? `q${pq}` : `r${g[0].id}`, status, topic: latestMistake.topic, row: latestMistake,
       error: abc === 'pending' ? 'not reviewed' : abc,
-      row_ids: g.map((r) => r.id), practice_question_id: latestMistake.practice_question_id, times_wrong: mistakes.length,
+      row_ids: g.map((r) => r.id), practice_question_id: pq,
+      times_wrong: mistakes.length, times_fixed: later.filter(rightInTime).length,
     })
   }
   const rank = { Open: 0, Repeated: 1, Fixed: 2 }

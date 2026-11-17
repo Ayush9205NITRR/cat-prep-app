@@ -6,7 +6,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { analyse } from '../../shared/analysis'
 import EditableTable from '../components/EditableTable'
 import ReportPanel from '../components/ReportPanel'
-import { Back, btnGhost, Card, ErrorNote, inputCls, Loading } from '../ui'
+import { topTopicsToDrill } from '../../shared/drill'
+import { Back, btnGhost, Card, ErrorNote, fmtSeconds as fmtS, inputCls, Loading } from '../ui'
 import { useMock } from '../useMock'
 
 function MetaInput({ value, onSave, type = 'text', className = '' }: { value: string; onSave: (v: string) => void; type?: string; className?: string }) {
@@ -88,6 +89,29 @@ export default function MockPage() {
           </div>
         </Card>
       )}
+
+      {(() => {
+        const top = topTopicsToDrill(rows, mock.has_time_data)
+        if (!top.length) return null
+        return (
+          <Card title="Top 3 topics to drill next" aside="Ranked by marks lost, then extra time">
+            <div className="grid gap-2 sm:grid-cols-3">
+              {top.map((t, i) => (
+                <div key={t.topic} className="flex flex-col rounded-xl border border-gray-200 p-3">
+                  <div className="text-[11px] font-medium text-gray-400">#{i + 1}</div>
+                  <Link to={`/topic/${encodeURIComponent(t.topic)}`} className="text-[13.5px] font-semibold text-gray-900 hover:text-indigo-700">{t.topic}</Link>
+                  <div className="mt-0.5 text-[12px] text-gray-500">
+                    {t.marks_lost > 0 && <b className="text-red-600">−{t.marks_lost} marks</b>}{t.marks_lost > 0 && t.extra_seconds > 0 && ' · '}
+                    {t.extra_seconds > 0 && <span className="text-amber-700">+{fmtS(t.extra_seconds)} slow</span>}
+                    <div>{[t.wrong && `${t.wrong} wrong`, t.slow && `${t.slow} slow`, t.skipped && `${t.skipped} skipped`].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  <Link to={`/test?topic=${encodeURIComponent(t.topic)}&count=5`} className={`${btnGhost} mt-2 self-start`}>Practice this topic</Link>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )
+      })()}
 
       <ReportPanel report={report} mockId={id} />
 

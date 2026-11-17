@@ -24,14 +24,19 @@ export default route(async (req, res) => {
 
   if (req.method === 'GET' && view === 'test') {
     const count = Number(one(req.query.count))
-    if (![5, 10, 15].includes(count)) return fail(res, 400, 'Choose 5, 10 or 15 questions')
+    // 5/10/15 in the picker; any 1–20 for small topics and Today's Session.
+    if (!Number.isInteger(count) || count < 1 || count > 20) return fail(res, 400, 'Choose 1–20 questions')
     const section = one(req.query.section)
     if (section && !(SECTION_NAMES as string[]).includes(section)) return fail(res, 400, 'Unknown section')
     const topics = topicsIn({ section, area: one(req.query.area), topic })
     if (!topics.length) return fail(res, 400, 'Nothing to test')
     return ok({ questions: await questionsForSolving(u.id, await pickQuestions(u.id, topics, count)) })
   }
-  if (req.method === 'GET' && view === 'retest') return ok({ questions: await questionsForSolving(u.id, await prepareRetest(u.id, topic)) })
+  if (req.method === 'GET' && view === 'retest') {
+    const limit = Number(one(req.query.limit)) || undefined
+    const ids = await prepareRetest(u.id, topic)
+    return ok({ questions: await questionsForSolving(u.id, limit ? ids.slice(0, limit) : ids) })
+  }
 
   if (req.method === 'POST' && view === 'submit') {
     const p = SubmitTest.safeParse(req.body)

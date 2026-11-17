@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type HomeData } from '../api'
+import { planSession, SESSION_MINUTES } from '../../shared/session'
+import { BLOCK_LABEL, startSession } from '../session'
+import { useNavigate } from 'react-router-dom'
 import { btnGhost, btnPrimary, Card, ErrorNote, Loading, PageHeader } from '../ui'
 
 function Tile({ label, value, sub, tone = 'text-gray-900', children }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string; children?: React.ReactNode }) {
@@ -15,7 +18,48 @@ function Tile({ label, value, sub, tone = 'text-gray-900', children }: { label: 
   )
 }
 
-const short = (s: string) => s.replace(/^(Sample mock — |Test · |Retest · )/, '').slice(0, 16)
+const short = (s: string) => s.replace(/^(Sample mock — |Test · |Retest · )/, '')
+/** X-axis label that never clips: cut to fit the bar's slot, full name in the tooltip. */
+function Tick({ x, y, payload, width }: any) {
+  const max = Math.max(4, Math.floor((width ?? 60) / 6.2))
+  const t = payload.value.length > max ? payload.value.slice(0, max - 1) + '…' : payload.value
+  return <text x={x} y={y + 12} textAnchor="middle" fontSize={10.5} fill="#6B7280">{t}</text>
+}
+
+function SessionCard({ have }: { have: HomeData['session'] }) {
+  const nav = useNavigate()
+  const [mins, setMins] = useState<number>(30)
+  const plan = planSession(mins, { ...have, weakest: have.weakest ?? undefined })
+  return (
+    <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[16px] font-semibold text-gray-900">Start today’s session</h2>
+          <p className="text-[12.5px] text-gray-500">One tap: due flashcards → retest open mistakes → drill your weakest topic.</p>
+        </div>
+        <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
+          {SESSION_MINUTES.map((m) => (
+            <button key={m} onClick={() => setMins(m)} className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold ${mins === m ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}>{m} min</button>
+          ))}
+        </div>
+      </div>
+      {plan.blocks.length === 0 ? <p className="mt-3 text-[12.5px] text-gray-500">Nothing to study yet: no due cards, open mistakes or saved questions.</p> : (
+        <>
+          <ol className="mt-4 grid gap-2 sm:grid-cols-3">
+            {plan.blocks.map((b, i) => (
+              <li key={i} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Step {i + 1} · ~{Math.round(b.minutes)} min</div>
+                <div className="text-[13.5px] font-semibold text-gray-900">{BLOCK_LABEL[b.kind]}</div>
+                <div className="truncate text-[12px] text-gray-500">{b.count} {b.kind === 'cards' ? 'card' : 'question'}{b.count === 1 ? '' : 's'}{b.topic ? ` · ${b.topic}` : ''}</div>
+              </li>
+            ))}
+          </ol>
+          <button className={`${btnPrimary} mt-4`} onClick={() => nav(startSession(plan))}>Start {mins}-minute session →</button>
+        </>
+      )}
+    </div>
+  )
+}
 
 /** Today's Study Hub. */
 export default function Home() {
@@ -26,11 +70,13 @@ export default function Home() {
   if (!d) return <Loading />
   // Percent of the maximum, so a 9-mark test and a 198-mark full mock compare fairly (raw marks in the tooltip).
   const pct = (n: number, max: number) => (max ? Math.max(0, Math.round((n / max) * 100)) : 0)
-  const chart = d.recent_mocks.map((m) => ({ name: short(m.name), Score: pct(m.score, m.max), Reachable: pct(m.reachable, m.max), raw: { Score: m.score, Reachable: m.reachable }, max: m.max }))
+  const chart = d.recent_mocks.map((m) => ({ name: short(m.name), full: m.name, Score: pct(m.score, m.max), Reachable: pct(m.reachable, m.max), raw: { Score: m.score, Reachable: m.reachable }, max: m.max }))
 
   return (
     <div className="space-y-6">
       <PageHeader title="Today" sub="Your study hub: what is due, what is weak, and how your mocks are going." />
+
+      <SessionCard have={d.session} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tile label="Days to CAT" value={d.days_left === null ? '—' : d.days_left < 0 ? 'Done' : d.days_left}
@@ -43,7 +89,7 @@ export default function Home() {
         <Tile label="Open mistakes" value={d.open_mistakes} sub={<>{d.fixed_mistakes} fixed{d.repeated ? <> · <b className="text-orange-600">{d.repeated} repeated</b></> : null}</>} tone={d.open_mistakes ? 'text-red-600' : 'text-gray-300'}>
           {d.open_mistakes > 0 && <Link to="/test?retest=1" className={btnGhost}>Retest all open mistakes</Link>}
         </Tile>
-        <Tile label="Mocks & tests" value={d.recent_mocks.length} sub={d.recent_mocks.length ? `latest: ${d.recent_mocks[d.recent_mocks.length - 1].score} / ${d.recent_mocks[d.recent_mocks.length - 1].max}` : 'none yet'}>
+        <Tile label="Mocks" value={d.mocks_count} sub={<>{d.recent_mocks.length ? `latest: ${d.recent_mocks[d.recent_mocks.length - 1].score} / ${d.recent_mocks[d.recent_mocks.length - 1].max}` : 'none yet'} · {d.tests_count} topic test{d.tests_count === 1 ? '' : 's'} &amp; retests</>}>
           <Link to="/mocks" className={btnGhost}>Open Mocks &amp; Tests</Link>
         </Tile>
       </div>
@@ -66,14 +112,14 @@ export default function Home() {
           )}
         </Card>
 
-        <Card title="Recent mocks: score vs reachable (% of max)" aside="Reachable = score if mistakes and solvable skips were fixed" className="lg:col-span-3">
+        <Card title="Recent full & sectional mocks (% of max)" aside="Reachable = score if mistakes and solvable skips were fixed" className="lg:col-span-3">
           {chart.length === 0 ? <p className="text-[12.5px] text-gray-500">No mocks yet. Upload one in Mocks &amp; Tests.</p> : (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chart} margin={{ left: -18, right: 6, top: 6 }}>
+              <BarChart data={chart} margin={{ left: -18, right: 12, top: 6, bottom: 4 }}>
                 <CartesianGrid vertical={false} stroke="#F3F4F6" />
-                <XAxis dataKey="name" tick={{ fontSize: 10.5, fill: '#6B7280' }} axisLine={false} tickLine={false} interval={0} />
+                <XAxis dataKey="name" tick={<Tick width={chart.length ? 560 / chart.length : 60} />} axisLine={false} tickLine={false} interval={0} height={28} />
                 <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 10 }} formatter={(v: number, n: string, p: any) => [`${p.payload.raw[n]} / ${p.payload.max} (${v}%)`, n]} />
+                <Tooltip labelFormatter={(_l: any, p: any) => p?.[0]?.payload.full ?? _l} contentStyle={{ fontSize: 12, borderRadius: 10 }} formatter={(v: number, n: string, p: any) => [`${p.payload.raw[n]} / ${p.payload.max} (${v}%)`, n]} />
                 <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
                 <Bar dataKey="Score" fill="#4F46E5" radius={[4, 4, 0, 0]} maxBarSize={28} />
                 <Bar dataKey="Reachable" fill="#A5B4FC" radius={[4, 4, 0, 0]} maxBarSize={28} />

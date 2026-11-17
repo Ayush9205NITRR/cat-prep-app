@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { CONFIG } from '../../shared/config'
-import { CLICK_TYPES, schedule } from '../../shared/flashcards'
+import { CLICK_TYPES, GRADES, scheduleGrade, type Grade } from '../../shared/flashcards'
+export { GRADES }
 import { autoTitle, detectKind, FILE_TYPES, MAX_FILE_BYTES, normaliseUrl } from '../../shared/note-input'
 import { TOPICS } from '../../shared/topics'
 import { db, q } from './db'
@@ -118,10 +119,11 @@ export async function dueCards(userId: number, topic?: string) {
 }
 
 /** Right → next interval (1, 2, 4, 8 days). Wrong → tomorrow, intervals restart. */
-export async function reviewCard(userId: number, id: number, right: boolean) {
+/** grade: Again / Hard / Good / Easy (or the older right/wrong: right = Good, wrong = Hard → tomorrow). */
+export async function reviewCard(userId: number, id: number, grade: Grade) {
   const [c] = await q<{ streak: number }>('SELECT streak FROM flashcards WHERE id = $1 AND user_id = $2', [id, userId])
   if (!c) return null
-  const s = schedule(c.streak, right)
+  const s = scheduleGrade(c.streak, grade)
   const [card] = await q(
     `UPDATE flashcards SET streak = $3, due_on = ${TODAY} + $4::int, reviews = reviews + 1 WHERE id = $1 AND user_id = $2 RETURNING ${C_COLS}`,
     [id, userId, s.streak, s.dueInDays],

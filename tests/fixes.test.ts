@@ -93,3 +93,25 @@ describe('sectional breakdown', () => {
     expect(b.reduce((n, x) => n + x.score, 0)).toBe(analyse(rows, true).score)
   })
 })
+
+describe('mistake de-duplication', () => {
+  const long = 'A can finish a job in 12 days and B in 18 days. How many more days?'
+  it('the same question in a mock and in two later tests is ONE mistake (Missed 2× · Fixed 1×)', () => {
+    const rows = [
+      row({ mock_created_at: at(9), practice_question_id: null, text: long }),             // mock row, no saved question
+      row({ mock_created_at: at(10), practice_question_id: 50, text: long }),              // test: wrong again
+      row({ mock_created_at: at(11), practice_question_id: 50, text: long, chosen_index: 0, seconds: 40 }), // retest: right in time
+    ]
+    const m = mistakesFrom(rows)
+    expect(m).toHaveLength(1)
+    expect(m[0]).toMatchObject({ times_wrong: 2, times_fixed: 1, status: 'Fixed', practice_question_id: 50 })
+    expect(m[0].row_ids).toHaveLength(3)
+  })
+  it('short one-line texts never merge different questions', () => {
+    const m = mistakesFrom([row({ practice_question_id: null, text: 'Q3' }), row({ practice_question_id: null, text: 'Q3', mock_id: 2 })])
+    expect(m).toHaveLength(2)
+  })
+  it('same text in different topics stays separate', () => {
+    expect(mistakesFrom([row({ practice_question_id: null, text: long }), row({ practice_question_id: null, text: long, topic: 'Averages' })])).toHaveLength(2)
+  })
+})

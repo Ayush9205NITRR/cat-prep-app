@@ -11,6 +11,7 @@ import Connect from './pages/Connect'
 import SectionPage from './pages/SectionPage'
 import Home from './pages/Home'
 import TopicPage from './pages/TopicPage'
+import SessionDone from './pages/SessionDone'
 import TestPage from './pages/TestPage'
 import QuestionEdit from './pages/QuestionEdit'
 import Notes from './pages/Notes'
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/section/:section" element={<SectionPage />} />
           <Route path="/topic/:topic" element={<TopicPage />} />
           <Route path="/test" element={<TestPage />} />
+          <Route path="/session/done" element={<SessionDone />} />
           <Route path="/mocks/:id" element={<MockPage />} />
           <Route path="/mocks/:id/review" element={<Review />} />
           <Route path="/mocks/:id/resolve" element={<Resolve />} />

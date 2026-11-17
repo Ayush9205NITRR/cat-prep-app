@@ -6,7 +6,8 @@ import { api, type MistakeItem, type TopicData } from '../api'
 import NewNote from '../components/NewNote'
 import StartTest from '../components/StartTest'
 import { btnGhost, btnPrimary, Card, ErrorNote, fmtSeconds, Loading, optionLabel } from '../ui'
-import { KIND, kindOf } from './Notes'
+import Markdown from '../components/Markdown'
+import { inTab, KIND, kindOf, NoteTabs, stripMd, type NoteTab } from './Notes'
 
 const STATUS: Record<MistakeItem['status'], string> = {
   Open: 'bg-red-50 text-red-700 ring-red-200',
@@ -14,8 +15,12 @@ const STATUS: Record<MistakeItem['status'], string> = {
   Fixed: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
 }
 
+const fixPrompt = (m: MistakeItem) =>
+  `Write a fix note for my mistake in ${m.mock_name} (row ${m.row_id}): "${m.text.slice(0, 160)}". I chose ${m.chosen_index === null ? 'nothing' : String.fromCharCode(65 + m.chosen_index)}, the answer is ${String.fromCharCode(65 + m.correct_index)}. Use pending_fixes / save_fix: Where it went wrong · Faster way · Rule.`
+
 function MistakeRow({ m }: { m: MistakeItem }) {
   const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const ans = (i: number | null) => (i === null ? 'Skipped' : `${optionLabel(i)} ${m.options[i] ?? ''}`)
   return (
     <div className="border-b border-gray-100 py-3 last:border-0">
@@ -26,7 +31,7 @@ function MistakeRow({ m }: { m: MistakeItem }) {
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11.5px] text-gray-500">
             <span>You: <b className={m.over_time ? 'text-amber-700' : 'text-red-600'}>{ans(m.chosen_index)}</b>{m.over_time && ` (slow: ${fmtSeconds(m.seconds)} vs ${fmtSeconds(m.ideal_seconds)})`}</span>
             <span>Correct: <b className="text-emerald-700">{ans(m.correct_index)}</b></span>
-            {m.times_wrong > 1 && <span className="text-orange-700">wrong {m.times_wrong}×</span>}
+            {(m.times_wrong > 1 || m.times_fixed > 0) && <span className="rounded-full bg-orange-50 px-2 font-medium text-orange-700">Missed {m.times_wrong}×{m.times_fixed ? ` · Fixed ${m.times_fixed}×` : ''}</span>}
           </div>
         </div>
         <span className="shrink-0 text-right text-[11.5px]">
@@ -39,11 +44,14 @@ function MistakeRow({ m }: { m: MistakeItem }) {
         {m.fix ? (
           <button className="text-left text-[12px] text-indigo-700 hover:underline" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'} Fix note</button>
         ) : (
-          <span className="text-[11.5px] text-gray-400">No fix note yet — ask Claude: “Analyse my last test”. · <Link className="underline" to={`/mocks/${m.mock_id}/review?row=${m.row_id}`}>Review in {m.mock_name}</Link></span>
+          <span className="flex flex-wrap items-center gap-2 text-[11.5px] text-gray-400">No fix note yet.
+            <button className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 hover:bg-indigo-100"
+              onClick={() => navigator.clipboard.writeText(fixPrompt(m)).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })}>{copied ? '✓ Copied — paste in Claude' : '📋 Copy prompt for Claude'}</button>
+            <Link className="underline" to={`/mocks/${m.mock_id}/review?row=${m.row_id}`}>Review in {m.mock_name}</Link></span>
         )}
         {open && m.fix && (
-          <div className="mt-2 whitespace-pre-line rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-[12.5px] leading-relaxed text-gray-800">
-            {m.fix.summary}
+          <div className="mt-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-[12.5px] leading-relaxed text-gray-800">
+            <Markdown text={m.fix.summary} />
             <div className="mt-2"><Link className="text-[11.5px] text-indigo-700 underline" to={`/notes/${m.fix.note_id}`}>Open the note</Link> · <Link className="text-[11.5px] text-indigo-700 underline" to={`/mocks/${m.mock_id}/review?row=${m.row_id}`}>See the question</Link></div>
           </div>
         )}
@@ -59,6 +67,7 @@ export default function TopicPage() {
   const [error, setError] = useState('')
   const [adding, setAdding] = useState<null | 'text' | 'link' | 'file'>(null)
   const [menu, setMenu] = useState(false)
+  const [tab, setTab] = useState<NoteTab>('all')
   const load = () => api.topic(topic).then(setD, (e) => setError(e.message))
   useEffect(() => { setD(null); load() }, [topic]) // eslint-disable-line react-hooks/exhaustive-deps
   if (error) return <ErrorNote>{error}</ErrorNote>
@@ -105,8 +114,9 @@ export default function TopicPage() {
       {/* 2. Notes */}
       <Card title={`Notes · ${d.notes.length}`}>
         {d.notes.length === 0 ? <p className="text-[12.5px] text-gray-500">No notes yet. Use <b>+ Add</b> above, or send lecture notes to Claude: “Make notes and flashcards”.</p> : (
+          <>{d.notes.length > 2 && <div className="mb-3"><NoteTabs tab={tab} set={setTab} notes={d.notes} /></div>}
           <div className="grid gap-2 sm:grid-cols-2">
-            {[...fixNotes, ...lectureNotes].map((n) => {
+            {[...fixNotes, ...lectureNotes].filter((n) => inTab(n, tab)).map((n) => {
               const k = n.kind === 'fix' ? { label: 'Fix', icon: '🛠️', cls: 'bg-orange-50 text-orange-700' } : KIND[kindOf(n) as keyof typeof KIND]
               return (
                 <div key={n.id} className="overflow-hidden rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/60">
@@ -121,19 +131,19 @@ export default function TopicPage() {
                   <Link to={`/notes/${n.id}`} className="line-clamp-2 text-[13px] font-medium text-gray-900 hover:text-indigo-700">{n.title}</Link>
                   {n.kind === 'file' && !n.file_read && <div className="mt-1 text-[11.5px] font-medium text-amber-700">Not read yet — ask Claude to read it</div>}
                   {n.kind === 'link' && n.link_url && <div className="mt-0.5 truncate text-[11.5px] text-sky-700">{n.link_url.replace(/^https?:\/\/(www\.)?/, '')}</div>}
-                  {n.preview && n.kind !== 'link' && <div className="mt-0.5 line-clamp-2 whitespace-pre-line text-[11.5px] text-gray-500">{n.preview}</div>}
+                  {n.preview && n.kind !== 'link' && <div className="mt-0.5 line-clamp-2 whitespace-pre-line text-[11.5px] text-gray-500">{stripMd(n.preview)}</div>}
                   </div>
                 </div>
               )
             })}
-          </div>
+          </div></>
         )}
       </Card>
 
       {/* 3. Practice */}
       <Card title="Practice" aside="Solve in one go; review after.">
         <div className="flex flex-wrap items-center gap-2">
-          <StartTest scope={{ topic }} />
+          <StartTest scope={{ topic }} available={d.questions.length} />
           <button className={btnGhost} disabled={!d.retestable} onClick={() => nav(`/test?retest=1&topic=${encodeURIComponent(topic)}`)}>Retest my mistakes ({d.retestable})</button>
         </div>
         {d.questions.length === 0

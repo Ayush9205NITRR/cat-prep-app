@@ -39,7 +39,7 @@ export default function MocksList() {
                   <span className="text-[14px] font-medium text-gray-900">{m.name}</span>
                 </div>
                 <div className="text-[12px] text-gray-500">
-                  {m.taken_on} · {m.questions} questions{m.has_time_data ? '' : ' · no time data'}
+                  {m.taken_on} · {m.questions} question{m.questions === 1 ? '' : 's'}{m.has_time_data ? '' : ' · no time data'}
                 </div>
               </div>
               <div className="flex gap-6 text-right">

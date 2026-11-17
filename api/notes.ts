@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { requireUser } from './_lib/auth'
 import { fail, one, route } from './_lib/http'
 import {
+  GRADES,
   addCard, CardInput, CreateNote, listVersions, restoreVersion, createNote, getFile, CardPatch, deleteCard, deleteNote, dueCards, getNote, listNotes, NotePatch, reviewCard, updateCard, updateNote,
 } from './_lib/notes'
 
@@ -77,9 +78,9 @@ export default route(async (req, res) => {
   }
 
   if (view === 'review' && m === 'POST') {
-    const b = z.object({ right: z.boolean() }).safeParse(req.body)
-    if (!b.success) return fail(res, 400, 'Say right or wrong')
-    const r = await reviewCard(u.id, id, b.data.right)
+    const b = z.union([z.object({ grade: z.enum(GRADES) }), z.object({ right: z.boolean() })]).safeParse(req.body)
+    if (!b.success) return fail(res, 400, 'Send a grade: again, hard, good or easy')
+    const r = await reviewCard(u.id, id, 'grade' in b.data ? b.data.grade : b.data.right ? 'good' : 'hard')
     return r ? ok(r) : fail(res, 404, 'Card not found')
   }
   fail(res, 405, 'Method not allowed')

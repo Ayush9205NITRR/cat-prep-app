@@ -76,7 +76,10 @@ export default function Review() {
 
       <Card
         title={`Q${r.q_no} · ${r.topic}`}
-        aside={bucket === 'incorrect' ? 'Incorrect' : `Over time: ${fmtSeconds(r.seconds)} vs ideal ${fmtSeconds(r.ideal_seconds)}`}
+        aside={<span className="flex flex-wrap items-center justify-end gap-1.5">
+          {bucket === 'incorrect' && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">Incorrect</span>}
+          {r.seconds !== null && r.seconds > r.ideal_seconds && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">⏱ Over time · {fmtSeconds(r.seconds)} vs ideal {fmtSeconds(r.ideal_seconds)}</span>}
+        </span>}
       >
         <p className="mb-3 whitespace-pre-wrap text-[14px] text-gray-900">{r.text}</p>
         <ul className="mb-1 space-y-1 text-[13px]">
@@ -88,6 +91,10 @@ export default function Review() {
             </li>
           ))}
         </ul>
+        <div className="mt-3 rounded-lg bg-gray-50 p-3 text-[13px] text-gray-800">
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Solution notes</div>
+          <p className="whitespace-pre-wrap">{r.solution_notes || 'No notes.'}</p>
+        </div>
       </Card>
 
       {r.type_options.length !== 3 || r.approach_options.length !== 3 ? (
@@ -123,10 +130,6 @@ export default function Review() {
             ) : (
               <div className="text-[13px] text-gray-700">You knew the type and the fastest approach. This one was right, just slow — practise it against the clock.</div>
             )}
-          </div>
-          <div className="rounded-lg bg-gray-50 p-3 text-[13px] text-gray-800">
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Solution notes</div>
-            <p className="whitespace-pre-wrap">{r.solution_notes || 'No notes.'}</p>
           </div>
           <button className="mt-3 text-[12px] text-gray-500 underline hover:text-gray-900" onClick={() => patchRow(r.id, { type_tap: null, approach_tap: null })}>
             Redo the taps

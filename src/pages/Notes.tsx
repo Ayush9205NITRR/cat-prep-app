@@ -12,6 +12,24 @@ export const KIND = {
   pdf: { label: 'PDF', icon: '📄', cls: 'bg-rose-50 text-rose-700' },
   fix: { label: 'Fix', icon: '🛠️', cls: 'bg-orange-50 text-orange-700' },
 }
+/** Plain text for a one-line preview: no **, #, ` or [link](url) syntax. */
+export const stripMd = (s: string) => s.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/^#{1,6}\s+/gm, '').replace(/(\*\*|__|\*|`|~~)/g, '').replace(/^\s*[-*]\s+/gm, '• ')
+/** Tabs that keep cheat sheets / concept summaries apart from fix notes. */
+export const NOTE_TABS = [['all', 'All'], ['sheets', 'Cheat sheets & summaries'], ['fix', 'Fixes'], ['mine', 'My notes & files']] as const
+export type NoteTab = (typeof NOTE_TABS)[number][0]
+export const inTab = (n: { kind: string }, t: NoteTab) =>
+  t === 'all' || (t === 'sheets' ? n.kind === 'summary' : t === 'fix' ? n.kind === 'fix' : n.kind !== 'summary' && n.kind !== 'fix')
+export function NoteTabs({ tab, set, notes }: { tab: NoteTab; set: (t: NoteTab) => void; notes: { kind: string }[] }) {
+  return (
+    <div className="flex w-fit flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+      {NOTE_TABS.map(([t, label]) => (
+        <button key={t} onClick={() => set(t)} className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium ${tab === t ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+          {label} <span className="opacity-60">{notes.filter((n) => inTab(n, t)).length}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 export const kindOf = (n: { kind: string; file_mime?: string | null }) =>
   n.kind === 'file' ? (n.file_mime === 'application/pdf' ? 'pdf' : 'image') : (n.kind as keyof typeof KIND)
 
@@ -32,7 +50,7 @@ function NoteCard({ n }: { n: NoteSummary }) {
         {n.kind === 'link' ? (
           <div className="mt-1 truncate text-[12px] text-sky-700">{host(n.link_url)}</div>
         ) : n.preview ? (
-          <div className="mt-1 line-clamp-3 whitespace-pre-line text-[12px] leading-relaxed text-gray-500">{n.preview}</div>
+          <div className="mt-1 line-clamp-3 whitespace-pre-line text-[12px] leading-relaxed text-gray-500">{stripMd(n.preview)}</div>
         ) : null}
         <div className="mt-auto flex items-center justify-between pt-3 text-[11px] text-gray-400">
           <span>{n.cards ? `${n.cards} flashcard${n.cards > 1 ? 's' : ''}` : 'No flashcards'}</span>
@@ -48,14 +66,15 @@ export default function Notes() {
   const [error, setError] = useState('')
   const [adding, setAdding] = useState(false)
   const [filter, setFilter] = useState('')
+  const [tab, setTab] = useState<NoteTab>('all')
   useEffect(() => { api.notes().then(setData, (e) => setError(e.message)) }, [])
   const byTopic = useMemo(() => {
     const m = new Map<string, NoteSummary[]>()
     const f = filter.trim().toLowerCase()
-    for (const n of data?.notes ?? [])
+    for (const n of data?.notes ?? []) if (inTab(n, tab))
       if (!f || n.title.toLowerCase().includes(f) || n.topic.toLowerCase().includes(f) || n.preview?.toLowerCase().includes(f)) m.set(n.topic, [...(m.get(n.topic) ?? []), n])
     return [...m.entries()]
-  }, [data, filter])
+  }, [data, filter, tab])
 
   if (error) return <ErrorNote>{error}</ErrorNote>
   if (!data) return <Loading />
@@ -72,6 +91,7 @@ export default function Notes() {
       {data.notes.length > 3 && (
         <input className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13px] shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10" placeholder="Search notes…" value={filter} onChange={(e) => setFilter(e.target.value)} />
       )}
+      {data.notes.length > 0 && <NoteTabs tab={tab} set={setTab} notes={data.notes} />}
       {data.notes.length === 0 ? (
         <Empty icon="📝" title="No notes yet">Click <b>New note</b> to paste text or a link, or add a photo or PDF. Or send lecture notes to Claude and say “Make notes and flashcards”.</Empty>
       ) : byTopic.length === 0 ? (
