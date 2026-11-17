@@ -28,10 +28,32 @@ const DILR_QS = [
   { topic: 'Data Sufficiency', difficulty: 'medium' as const, text: 'Is x > y? (1) x − y = 3. (2) x + y = 9.', options: ['(1) alone', '(2) alone', 'Both together', 'Each alone'], correct_index: 0, ideal_seconds: 60, type_options: ['Yes/no data sufficiency', 'Value data sufficiency', 'Ranking'], type_answer: 0, approach_options: ['Test each statement alone first', 'Solve both together', 'Plug numbers'], approach_answer: 0, solution_notes: '(1) gives x − y = 3 > 0, so yes. (2) alone does not.', hints: ['Check each statement on its own first.'] },
 ]
 
+const LR_ROWS = [
+  { q_no: 1, topic: 'Arrangements', text: 'Six people sit around a round table. A is opposite B; C is to the immediate left of A. Who sits opposite C?', options: ['D', 'E', 'F', 'Cannot be determined'], correct_index: 3, chosen_index: 0, seconds: 210, ideal_seconds: 150, solution_notes: 'Two positions remain open for D, E, F: not enough information.' },
+  { q_no: 2, topic: 'Games & Tournaments', text: '8 teams play a single round-robin. What is the total number of matches?', options: ['16', '28', '56', '64'], correct_index: 1, chosen_index: 1, seconds: 60, ideal_seconds: 60, solution_notes: '8C2 = 28.' },
+  { q_no: 3, topic: 'Venn Diagrams', text: '40 like tea, 30 coffee, 10 both, 20 neither. How many people in all?', options: ['80', '90', '100', '70'], correct_index: 0, chosen_index: 0, seconds: 75, ideal_seconds: 60, solution_notes: '40 + 30 − 10 + 20 = 80.' },
+  { q_no: 4, topic: 'Tables', text: 'Revenue grew from 200 to 260. Percentage growth?', options: ['25%', '30%', '35%', '60%'], correct_index: 1, chosen_index: null, seconds: null, ideal_seconds: 45, solution_notes: '60 ÷ 200 = 30%.' },
+]
+const FULL_NAME = 'Sample full-length mock (VARC + DILR + Quant)'
+
+/** A full-length sample (all 3 sections) for the reviewer, added once if missing. */
+async function ensureFullMock(userId: number) {
+  const [has] = await q('SELECT id FROM mocks WHERE user_id = $1 AND name = $2', [userId, FULL_NAME])
+  if (has) return false
+  const rows = [
+    ...VARC_ROWS.map((r) => ({ ...r })),
+    ...LR_ROWS.map((r, i) => ({ ...r, q_no: VARC_ROWS.length + i + 1 })),
+    ...SAMPLE_ROWS.slice(0, 12).map((r, i) => ({ ...r, q_no: VARC_ROWS.length + LR_ROWS.length + i + 1 })),
+  ]
+  await createMock(userId, { name: FULL_NAME, taken_on: SAMPLE_MOCK.taken_on, has_time_data: true, section: 'Full' }, rows as any)
+  return true
+}
+
 export async function seedReviewer(reset: boolean) {
   const [existing] = await q<{ id: number }>('SELECT id FROM users WHERE username = $1', [REVIEWER.username])
   if (existing && !reset) {
     await q('UPDATE users SET password_hash = $2 WHERE id = $1', [existing.id, await hashPassword(REVIEWER.password)])
+    await ensureFullMock(existing.id)
     return { id: existing.id, created: false }
   }
   if (existing) await q('DELETE FROM users WHERE id = $1', [existing.id])
@@ -41,6 +63,7 @@ export async function seedReviewer(reset: boolean) {
   // 1. Two uploaded mocks: the Quant sample (already reviewed) and a VARC sectional (not reviewed yet).
   await createMock(u.id, SAMPLE_MOCK, SAMPLE_ROWS as any)
   await createMock(u.id, { name: 'SimCAT 1 — VARC sectional', taken_on: SAMPLE_MOCK.taken_on, has_time_data: true }, VARC_ROWS as any)
+  await ensureFullMock(u.id)
 
   // 2. Saved practice questions in all three sections.
   const ids: Record<string, number[]> = {}

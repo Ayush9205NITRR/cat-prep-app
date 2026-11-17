@@ -2,7 +2,7 @@
 // extracts the PDF's text layer). Claude reads it with get_mock_upload and saves rows with save_mock(upload_id).
 import { z } from 'zod'
 import { MAX_FILE_BYTES } from '../../shared/note-input'
-import { SECTION_NAMES } from '../../shared/topics'
+import { MOCK_SECTIONS } from '../../shared/topics'
 import { q } from './db'
 
 export const KINDS = ['mock', 'assignment', 'notes'] as const
@@ -12,7 +12,7 @@ export const UploadInput = z.object({
   kind: z.enum(KINDS).default('mock'),
   mime: z.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']).default('application/pdf'),
   name: z.string().min(1).max(200),
-  section: z.enum(SECTION_NAMES).nullable().optional(),
+  section: z.enum(MOCK_SECTIONS).nullable().optional(),
   page_texts: z.array(z.string().max(60000)).min(1).max(200),
   pdf_size: z.number().int().min(1),
   pdf_base64: z.string().optional(), // the file itself (PDF or photo), only when ≤ 3 MB

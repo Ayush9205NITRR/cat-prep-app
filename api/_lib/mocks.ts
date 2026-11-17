@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { analyse, type QuestionRow } from '../../shared/analysis'
-import { majoritySection, SECTION_NAMES, TOPICS } from '../../shared/topics'
+import { MOCK_SECTIONS, mockSectionOf, TOPICS } from '../../shared/topics'
 import { db, q } from './db'
 
 // ---------- input shapes (shared by MCP and the REST API) ----------
@@ -29,7 +29,7 @@ export const MockInput = {
   name: z.string().min(1).max(200),
   taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD'),
   has_time_data: z.boolean(),
-  section: z.enum(SECTION_NAMES).optional().describe('Default: the section most rows belong to'),
+  section: z.enum(MOCK_SECTIONS).optional().describe('Quant, VARC, DILR or Full (all three). Default: worked out from the topics'),
   rows: z.array(RowInput).min(1).max(200),
 }
 
@@ -89,7 +89,7 @@ export async function createMock(
   m: { name: string; taken_on: string; has_time_data: boolean; section?: string; source?: 'mock' | 'test' | 'retest'; topic?: string | null; scope?: string | null },
   rows: (RowInput & Partial<Pick<QuestionRow, 'type_tap' | 'approach_tap' | 'resolve_index' | 'resolve_seconds'>> & { practice_question_id?: number | null })[],
 ): Promise<number> {
-  const section = m.section ?? majoritySection(rows.map((r) => r.topic))
+  const section = m.section ?? mockSectionOf(rows.map((r) => r.topic))
   const client = await db().connect()
   try {
     await client.query('BEGIN')
@@ -124,7 +124,7 @@ export const MockPatch = z
     name: z.string().min(1).max(200),
     taken_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     has_time_data: z.boolean(),
-    section: z.enum(SECTION_NAMES),
+    section: z.enum(MOCK_SECTIONS),
   })
   .partial()
   .strict()

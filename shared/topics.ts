@@ -1,4 +1,5 @@
-// Copied from the Game Changer repo (app/src/schema.js): 7 areas, 38 topics.
+// Based on the Game Changer repo (app/src/schema.js): 7 areas, 38 topics — plus Para Summary, Odd One Out
+// and a Logical Reasoning area (6 topics) for the full CAT syllabus: 8 areas, 46 topics.
 export const SCHEMA = {
   Arithmetic: [
     'TSD - Circular Tracks',
@@ -24,7 +25,9 @@ export const SCHEMA = {
   'Number System': ['LCM & HCF', 'Divisibility Rules', 'Remainders & Cyclicity', 'Factors & Multiples'],
   'Modern Math': ['Permutation & Combination', 'Probability', 'Set Theory', 'Data Sufficiency'],
   'Data Interpretation': ['Tables', 'Bar Graphs', 'Line Graphs', 'Caselets', 'Pie Charts'],
-  Verbal: ['Reading Comprehension', 'Para Jumbles', 'Critical Reasoning', 'Vocabulary'],
+  Verbal: ['Reading Comprehension', 'Para Jumbles', 'Critical Reasoning', 'Vocabulary', 'Para Summary', 'Odd One Out'],
+  // Added beyond the Game Changer list to cover the CAT LR syllabus.
+  'Logical Reasoning': ['Arrangements', 'Games & Tournaments', 'Venn Diagrams', 'Routes & Networks', 'Scheduling', 'Binary Logic'],
 } as const
 
 export type Area = keyof typeof SCHEMA
@@ -38,7 +41,7 @@ export function areaOf(topic: string): Area | undefined {
 }
 
 // ---------- Sections (FIXES round 1, Fix 1): Section → Area → Topic ----------
-// Same 38 topics. Data Sufficiency sits in DILR (the schema lists it under Modern Math).
+// Same 46 topics. Data Sufficiency sits in DILR (the schema lists it under Modern Math).
 // VARC's "areas" are its four topics.
 export const SECTIONS = {
   Quant: {
@@ -53,15 +56,21 @@ export const SECTIONS = {
     'Para Jumbles': ['Para Jumbles'],
     'Critical Reasoning': ['Critical Reasoning'],
     Vocabulary: ['Vocabulary'],
+    'Para Summary': ['Para Summary'],
+    'Odd One Out': ['Odd One Out'],
   },
   DILR: {
     'Data Interpretation': SCHEMA['Data Interpretation'],
     'Data Sufficiency': ['Data Sufficiency'],
+    'Logical Reasoning': SCHEMA['Logical Reasoning'],
   },
 } as const satisfies Record<string, Record<string, readonly string[]>>
 
 export type Section = keyof typeof SECTIONS
 export const SECTION_NAMES = Object.keys(SECTIONS) as [Section, ...Section[]]
+/** A mock is one section, or a full-length paper with all three. */
+export const MOCK_SECTIONS = [...SECTION_NAMES, 'Full'] as const
+export type MockSection = (typeof MOCK_SECTIONS)[number]
 
 export function sectionOf(topic: string): Section | undefined {
   return SECTION_NAMES.find((s) => Object.values(SECTIONS[s]).some((ts) => (ts as readonly string[]).includes(topic)))
@@ -100,4 +109,12 @@ export function resolveTopic(input: string): { topic: Topic } | { suggestions: s
   if (hit) return { topic: hit }
   const score = (t: string) => { const m = norm(t); return m.includes(n) || n.includes(m) ? -1 : distance(n, m) }
   return { suggestions: [...TOPICS].sort((a, b) => score(a) - score(b)).slice(0, 3) }
+}
+
+/** Section of a saved mock when the caller does not say: Full when the rows really span 2+ sections. */
+export function mockSectionOf(topics: string[]): MockSection {
+  const n = new Map<Section, number>()
+  for (const t of topics) { const s = sectionOf(t); if (s) n.set(s, (n.get(s) ?? 0) + 1) }
+  const big = [...n.values()].filter((c) => c >= Math.max(2, topics.length * 0.2))
+  return topics.length >= 10 && big.length >= 2 ? 'Full' : majoritySection(topics)
 }

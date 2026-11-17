@@ -1,13 +1,13 @@
 // FIXES round 1: topic home, mistakes, fix notes, tests and retests.
 import { z } from 'zod'
-import { abcOf, bucketOf, type Abc } from '../../shared/analysis'
+import { abcOf, analyse, bucketOf, type Abc } from '../../shared/analysis'
 import { CONFIG } from '../../shared/config'
 import { mistakesFrom, type HistoryRow, type Mistake } from '../../shared/mistakes'
 import { sectionOf, TOPICS } from '../../shared/topics'
 import { db, q } from './db'
 import { listNotes } from './notes'
 import { forSolving, type PracticeQuestion } from './practice'
-import { createMock } from './mocks'
+import { createMock, getMock } from './mocks'
 
 const TODAY = `(now() AT TIME ZONE '${CONFIG.TIME_ZONE}')::date`
 const todayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.TIME_ZONE }).format(new Date())
@@ -228,4 +228,33 @@ export async function retestOutcome(userId: number, mockId: number) {
   const ms = (await mistakesWithFixes(userId)).filter((m) => m.practice_question_id && ids.includes(m.practice_question_id))
   const fixed = ms.filter((m) => m.status === 'Fixed').length
   return { retested: rows.length, fixed, still_open: rows.length - fixed }
+}
+
+// ---------- Home dashboard: one call ----------
+export async function homeData(userId: number) {
+  const [[u], summary, mocks] = await Promise.all([
+    q<{ exam_date: string | null; days: number | null }>(`SELECT to_char(exam_date, 'YYYY-MM-DD') AS exam_date, (exam_date - ${TODAY}) AS days FROM users WHERE id = $1`, [userId]),
+    topicsSummary(userId),
+    q<{ id: number }>(`SELECT id FROM mocks WHERE user_id = $1 ORDER BY taken_on DESC, id DESC LIMIT 8`, [userId]),
+  ])
+  const topics = Object.entries(summary)
+  const sum = (k: 'due' | 'open' | 'fixed' | 'repeated') => topics.reduce((n, [, t]) => n + t[k], 0)
+  // Most active / weakest: open mistakes (repeats count double), then due cards.
+  const active = topics
+    .filter(([, t]) => t.open || t.due)
+    .map(([topic, t]) => ({ topic, section: sectionOf(topic), open: t.open, repeated: t.repeated, fixed: t.fixed, due: t.due }))
+    .sort((a, b) => b.open + b.repeated - (a.open + a.repeated) || b.due - a.due)
+    .slice(0, 8)
+  const recent = []
+  for (const { id } of mocks) {
+    const m = await getMock(userId, id)
+    if (!m) continue
+    const r = analyse(m.rows, m.mock.has_time_data)
+    recent.push({ id, name: m.mock.name, taken_on: m.mock.taken_on, section: m.mock.section, source: m.mock.source, score: r.score, reachable: r.reachable_score, max: r.max_score })
+  }
+  return {
+    exam_date: u?.exam_date ?? null, days_left: u?.days ?? null,
+    due_today: sum('due'), open_mistakes: sum('open'), fixed_mistakes: sum('fixed'), repeated: sum('repeated'),
+    active_topics: active, recent_mocks: recent.reverse(), // oldest → newest for the chart
+  }
 }

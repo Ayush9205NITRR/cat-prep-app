@@ -52,7 +52,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
       const r = await api.login(REVIEWER.username, REVIEWER.password)
       if (next) return window.location.assign(next) // connecting Claude: back to the Allow page
       onLogin(r.user)
-      navigate('/section/Quant', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
   }
 

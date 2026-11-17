@@ -21,7 +21,7 @@ export default function MocksList() {
       <PageHeader title="Mocks & Tests" sub="Mocks you upload to Claude (“Analyse my mock”) and tests you take in the app. Open one for the score, buckets and review." />
       <MockUpload />
       <div className="flex w-fit gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-        {['All', 'Quant', 'VARC', 'DILR'].map((t) => (
+        {['All', 'Full', 'Quant', 'VARC', 'DILR'].map((t) => (
           <button key={t} onClick={() => setParams(t === 'All' ? {} : { section: t })} className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium ${tab === t ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{t}</button>
         ))}
       </div>

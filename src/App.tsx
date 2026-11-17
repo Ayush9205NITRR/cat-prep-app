@@ -9,6 +9,7 @@ import Review from './pages/Review'
 import Resolve from './pages/Resolve'
 import Connect from './pages/Connect'
 import SectionPage from './pages/SectionPage'
+import Home from './pages/Home'
 import TopicPage from './pages/TopicPage'
 import TestPage from './pages/TestPage'
 import QuestionEdit from './pages/QuestionEdit'
@@ -49,10 +50,12 @@ export default function App() {
             mbaprep
           </Link>
           <nav className="-mx-1 flex max-w-full items-center gap-1 overflow-x-auto px-1">
+            <NavLink to="/" end className={nav}>Home</NavLink>
             <NavLink to="/section/Quant" className={nav}>Quant</NavLink>
             <NavLink to="/section/VARC" className={nav}>VARC</NavLink>
             <NavLink to="/section/DILR" className={nav}>DILR</NavLink>
             <NavLink to="/mocks" className={nav}>Mocks &amp; Tests</NavLink>
+            <NavLink to="/flashcards" className={nav}>Flashcards</NavLink>
             <NavLink to="/connect" className={nav}>Connect Claude</NavLink>
             <button
               className="ml-1 flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 hover:bg-gray-900/5 hover:text-gray-900"
@@ -67,7 +70,8 @@ export default function App() {
       </header>
       <main className="mx-auto max-w-6xl px-4 py-7">
         <Routes>
-          <Route path="/" element={<Navigate to="/section/Quant" replace />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/flashcards" element={<CardReview />} />
           <Route path="/mocks" element={<MocksList />} />
           <Route path="/section/:section" element={<SectionPage />} />
           <Route path="/topic/:topic" element={<TopicPage />} />

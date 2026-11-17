@@ -118,7 +118,11 @@ export default function ReportPanel({ report: r, mockId }: { report: Report; moc
             <ResponsiveContainer width="100%" height={marksParts.length * 34 + 10}>
               <BarChart data={marksParts} layout="vertical" margin={{ left: 0, right: 28, top: 0, bottom: 0 }}>
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                {/* One unbroken label per bar: a narrow axis wrapped "B · Optimal approach" into two lines that read as "Optimalapproach". */}
+                <YAxis type="category" dataKey="label" width={150} axisLine={false} tickLine={false}
+                  tick={({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => (
+                    <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fill="#6B7280">{payload.value}</text>
+                  )} />
                 <Tooltip cursor={{ fill: '#F3F4F6' }} formatter={(v: number, _n, p: any) => [`${v} marks · ${p.payload.questions} q`, '']} separator="" contentStyle={{ fontSize: 11, borderRadius: 8 }} />
                 <Bar dataKey="marks" radius={[0, 4, 4, 0]} barSize={18}>
                   {marksParts.map((p) => <Cell key={p.key} fill={PART_COLOR[p.key]} />)}

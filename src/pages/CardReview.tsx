@@ -21,7 +21,7 @@ export default function CardReview() {
   if (error) return <ErrorNote>{error}</ErrorNote>
   if (!cards) return <Loading />
 
-  const back = topic ? `/topic/${encodeURIComponent(topic)}` : '/notes'
+  const back = topic ? `/topic/${encodeURIComponent(topic)}` : '/'
   const c = cards[i]
   async function grade(right: boolean) {
     setBusy(true)
@@ -35,13 +35,13 @@ export default function CardReview() {
   if (!c)
     return (
       <div className="mx-auto max-w-xl space-y-4">
-        <Back to={back}>{topic ?? 'Notes'}</Back>
+        <Back to={back}>{topic ?? 'Home'}</Back>
         {cards.length === 0 ? <Empty icon="✅" title="No cards due">Nothing to review {topic ? `in ${topic} ` : ''}right now.</Empty> : (
           <div className="rounded-2xl border border-gray-200/70 bg-white p-8 text-center shadow-sm">
             <div className="text-[34px]">🎉</div>
             <div className="mt-1 text-[17px] font-semibold">Done for now</div>
             <div className="mt-2 text-[14px] text-gray-700"><b className="text-emerald-700">{tally.got} got</b> · <b className="text-red-600">{tally.missed} missed</b> · next review {tally.next === Infinity ? '—' : when(tally.next).toLowerCase()}</div>
-            <Link to={back} className={`${btnPrimary} mt-5`}>Back to {topic ?? 'notes'}</Link>
+            <Link to={back} className={`${btnPrimary} mt-5`}>Back to {topic ?? 'Home'}</Link>
           </div>
         )}
       </div>
@@ -52,14 +52,14 @@ export default function CardReview() {
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <div className="flex items-center justify-between">
-        <Back to={back}>{topic ?? 'Notes'}</Back>
-        <span className="text-[12.5px] font-medium text-gray-600">{i + 1} of {cards.length}</span>
+        <Back to={back}>{topic ?? 'Home'}</Back>
+        <span className="text-[12.5px] font-medium text-gray-600">{topic ? '' : 'All topics · '}{i + 1} of {cards.length}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-gray-200"><div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${(i / cards.length) * 100}%` }} /></div>
 
       <div className="rounded-2xl border border-gray-200/70 bg-white p-5 shadow-[0_1px_3px_rgba(16,24,40,0.06)]">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-gray-500">
-          <span>{c.topic} · {c.title}</span>
+          <span><Link to={`/topic/${encodeURIComponent(c.topic)}`} className="rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 hover:underline">{c.topic}</Link> <span className="ml-1">{c.title}</span></span>
           {c.kind === 'fix' && (
             <span className="rounded-full bg-orange-50 px-2 py-0.5 font-medium text-orange-700">
               🛠️ From your mistake{c.fix_mock_id && <> · <Link className="underline" to={`/mocks/${c.fix_mock_id}/review?row=${c.fix_row_id}`}>the question</Link></>}

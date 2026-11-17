@@ -12,12 +12,15 @@ const row = (p: Partial<HistoryRow>): HistoryRow => ({
 const at = (h: number) => `2026-11-12T${String(h).padStart(2, '0')}:00:00Z`
 
 describe('sections', () => {
-  it('all 38 topics are in exactly one section', () => {
-    expect(TOPICS.filter((t) => sectionOf(t)).length).toBe(38)
+  it('all 46 topics are in exactly one section', () => {
+    expect(TOPICS.length).toBe(46)
+    expect(TOPICS.filter((t) => sectionOf(t)).length).toBe(46)
+    expect(sectionOf('Games & Tournaments')).toBe('DILR')
+    expect(sectionOf('Odd One Out')).toBe('VARC')
     expect(sectionOf('Data Sufficiency')).toBe('DILR')
     expect(sectionOf('Para Jumbles')).toBe('VARC')
     expect(sectionOf('Triangles')).toBe('Quant')
-    expect(Object.keys(SECTIONS.DILR)).toEqual(['Data Interpretation', 'Data Sufficiency'])
+    expect(Object.keys(SECTIONS.DILR)).toEqual(['Data Interpretation', 'Data Sufficiency', 'Logical Reasoning'])
     expect(topicsIn({ section: 'Quant', area: 'Geometry' })).toHaveLength(5)
   })
   it('save_mock without a section uses the section most rows belong to', () => {
@@ -58,5 +61,35 @@ describe('topic names from Claude (Fix 10.1)', () => {
     const r = resolveTopic('Trianglez') as { suggestions: string[] }
     expect(r.suggestions).toHaveLength(3); expect(r.suggestions[0]).toBe('Triangles')
     expect(resolveTopic('Profit and loss')).toEqual({ topic: 'Profit & Loss' })
+  })
+})
+
+import { mockSectionOf } from '../shared/topics'
+describe('full-length mocks', () => {
+  it('a paper spanning sections is Full; a sectional stays its section', () => {
+    const full = [...Array(8).fill('Reading Comprehension'), ...Array(6).fill('Arrangements'), ...Array(8).fill('Time & Work')]
+    expect(mockSectionOf(full)).toBe('Full')
+    expect(mockSectionOf([...Array(20).fill('Averages'), 'Para Jumbles'])).toBe('Quant')
+    expect(mockSectionOf(['Averages', 'Para Jumbles', 'Tables'])).not.toBe('Full') // too few rows to call it full-length
+  })
+  it('new topics resolve for Claude', () => {
+    expect(resolveTopic('games and tournaments')).toEqual({ topic: 'Games & Tournaments' })
+    expect(resolveTopic('para summary')).toEqual({ topic: 'Para Summary' })
+  })
+})
+
+import { sectionBreakdown } from '../shared/sections-report'
+import { analyse } from '../shared/analysis'
+describe('sectional breakdown', () => {
+  it('splits a full-length mock by section and the parts add up to the total', () => {
+    const rows = [
+      row({ topic: 'Reading Comprehension', chosen_index: 0 }), row({ topic: 'Reading Comprehension', chosen_index: 1 }),
+      row({ topic: 'Arrangements', chosen_index: 0 }), row({ topic: 'Tables', chosen_index: null }),
+      row({ topic: 'Averages', chosen_index: 0 }), row({ topic: 'Averages', chosen_index: 0 }),
+    ]
+    const b = sectionBreakdown(rows, true)
+    expect(b.map((x) => x.section)).toEqual(['VARC', 'DILR', 'Quant'])
+    expect(b.map((x) => x.score)).toEqual([2, 3, 6])
+    expect(b.reduce((n, x) => n + x.score, 0)).toBe(analyse(rows, true).score)
   })
 })

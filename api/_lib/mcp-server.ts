@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ABC_LABEL, abcOf, analyse, bucketOf } from '../../shared/analysis'
 import { DIFFICULTIES } from '../../shared/practice'
 import { resolveTopic, SECTION_NAMES, SECTIONS } from '../../shared/topics'
+import { sectionBreakdown } from '../../shared/sections-report'
 import type { User } from './auth'
 import { markFileRead, nextMistake, noteFull, oneLine, page, pendingFixes, profile, rewriteNote, topicDigest, type Include } from './claude'
 import { q } from './db'
@@ -157,8 +158,10 @@ export function buildMcpServer(user: User, appUrl: string): McpServer {
       counts: { right: r.counts.correct, wrong: r.counts.incorrect, skipped: r.counts.skipped },
       buckets: { pocket: r.buckets.pocket, over_time: t ? r.buckets.over_time : 'n/a', incorrect: r.buckets.incorrect, could_solve: r.buckets.could_have_solved, not_solved: r.buckets.not_solved },
       abc: r.abc, unresolved_skips: r.pending_resolve,
+      // Full-length mocks: score per section (compact: [section, score, reachable, right, wrong, skipped]).
+      ...(() => { const b = sectionBreakdown(m.rows, t); return b.length > 1 ? { sections: b.map((x) => [x.section, x.score, x.reachable, x.right, x.wrong, x.skipped]) } : {} })(),
       deficit: { fixable_now: r.deficit.fixable_now.total, needs_practice: r.deficit.needs_practice.total, over_time_min: r.deficit.over_time_extra_minutes },
-      top_fixes: r.top_fixes.map((f) => oneLine(f, 100)),
+      top_fixes: r.top_fixes.map((f) => oneLine(f, 90)),
       wrong: { items: p.items.map((x) => { const a = abcOf(x, t); return { id: x.id, q: oneLine(x.text, 34), topic: x.topic, r: bucketOf(x, t) === 'incorrect' ? 'wrong' : 'slow', tag: a === 'pending' ? null : a } }), total: p.total, next_cursor: p.next_cursor },
       link: `${appUrl}/mocks/${latest.id}`,
       next: 'Use next_mistake to review one at a time.',

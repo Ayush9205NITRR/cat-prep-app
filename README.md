@@ -3,7 +3,10 @@
 Claude reads what the student uploads and sends structured data to this app through MCP. The app stores it, lets the
 student edit everything, and runs the analysis with plain rules — there is no AI inside the app.
 
-- **Structure:** Quant · VARC · DILR → areas → topics. Each topic page is one home: Mistakes (Open · Fixed · Repeated, A/B/C, fix note), Notes, Practice (tests and retests), Flashcards.
+- **Home (`/`):** days to CAT (exam date from the Connect page), flashcards due today with *Review all due*, open mistakes with *Retest all*, the topics needing attention, and recent mocks (score vs reachable, % of max).
+- **Flashcards (`/flashcards`):** one review queue for all due cards across all topics, each card showing its topic.
+- **Full-length mocks:** section `Full` (VARC + DILR + Quant). `save_mock` detects it when `section` is left out and the rows really span 2+ sections; the mock page shows a per-section score/reachable breakdown, a Section column and section tabs on the questions table; `get_report` adds `sections`.
+- **Structure:** Quant · VARC · DILR → areas → topics. Section pages filter: All · Needs attention · Active only. Each topic page is one home: Mistakes (Open · Fixed · Repeated, A/B/C, fix note), Notes, Practice (tests and retests), Flashcards.
 - **The loop:** take a test (5/10/15 questions, no feedback) → result page like a mock → in Claude “Analyse my last test”: `get_report` → two taps per wrong question (`tag_mistake`) → short explanation → `save_fix` (fix note + flashcard on the topic) → `start_retest` → a mistake answered right within its ideal time becomes **Fixed**; wrong again → **Repeated**.
 - **Fastest mistake review:** tap A/B/C in the app's Review screen (instant), then *“Write fixes for my reviewed mistakes in mbaprep”* → `pending_fixes` + one `save_fixes` (about 2 calls per 5 mistakes). Reviewing in chat instead uses `review_mistake`: one call per mistake instead of three.
 - **Upload for Claude (inbox):** Mocks & Tests → **Upload for Claude**: Mock paper (PDF), Assignment (PDF), Class notes (photo or PDF). Then one prompt: *Process my mbaprep inbox one item at a time and give me the app link after each.* Claude calls `get_inbox` (a tiny list), then per item `get_upload` → save (`save_mock` / `save_notes` / `save_questions` with `upload_id`) → link, before opening the next — never reading all files first. Each inbox row then links to where it was saved.
@@ -73,7 +76,7 @@ Token budget (the student's Claude plan pays for every tool result): `topic` is 
 
 `save_mock` also takes `section` (Quant/VARC/DILR; default = the section most rows belong to). `get_report` without `mock_id` = the latest mock or test, and lists every wrong or over-time question with its `attempt_id` and tap options (not the answers).
 
-`topic` is an enum of the 38 fixed topics (7 areas), so Claude cannot invent topics. Wrong or missing token → 401
+`topic` is one of the 46 fixed topics (8 areas: the Game Changer 38 plus Para Summary, Odd One Out and 6 Logical Reasoning topics), so Claude cannot invent topics. Wrong or missing token → 401
 with `WWW-Authenticate: Bearer resource_metadata=…` so OAuth clients find the sign-in.
 
 ## Rules (all numbers in `shared/config.ts`, logic in `shared/analysis.ts`)

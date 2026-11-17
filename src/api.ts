@@ -45,6 +45,12 @@ export type DueCard = Card & { title: string; topic: string; kind: string; fix_r
 
 export interface MockUploadItem { id: number; kind: 'mock' | 'assignment' | 'notes'; mime: string; result_link: string | null; name: string; section: string | null; pages: number; chars: number | null; pdf_kept: boolean; status: 'new' | 'saved'; mock_id: number | null }
 
+export interface HomeData {
+  exam_date: string | null; days_left: number | null; due_today: number; open_mistakes: number; fixed_mistakes: number; repeated: number
+  active_topics: { topic: string; section: string; open: number; repeated: number; fixed: number; due: number }[]
+  recent_mocks: { id: number; name: string; taken_on: string; section: string | null; source: string; score: number; reachable: number; max: number }[]
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
@@ -110,6 +116,7 @@ export const api = {
   dueCards: (topic?: string) => call<{ cards: DueCard[] }>('GET', `/api/notes?view=due${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),
   reviewCard: (id: number, right: boolean) => call<{ card: Card; due_in_days: number }>('POST', `/api/notes?view=review&id=${id}`, { right }),
   // FIXES round 1
+  home: () => call<HomeData>('GET', '/api/topics?view=home'),
   topicsSummary: () => call<{ topics: Record<string, TopicStats> }>('GET', '/api/topics?view=summary'),
   topic: (t: string) => call<TopicData>('GET', `/api/topics?view=topic&topic=${encodeURIComponent(t)}`),
   testQuestions: (scope: { section?: string; area?: string; topic?: string }, count: number) =>

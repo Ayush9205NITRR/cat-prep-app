@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { abcOf, BUCKET_LABEL, bucketOf, type QuestionRow } from '../../shared/analysis'
-import { SCHEMA, AREAS } from '../../shared/topics'
+import { SCHEMA, AREAS, SECTIONS, sectionOf, type Section } from '../../shared/topics'
 import { optionLabel } from '../ui'
 
 type Row = QuestionRow & { id: number }
@@ -70,7 +70,14 @@ function SelectCell({ value, onSave, children, label, className = '' }: { value:
   )
 }
 
-export default function EditableTable({ rows, hasTimeData, onPatch }: { rows: Row[]; hasTimeData: boolean; onPatch: (id: number, p: Partial<QuestionRow>) => unknown }) {
+/** Topic choices for a row: the mock's section only (all sections for a full-length mock). */
+function topicGroups(section: string | null | undefined): [string, readonly string[]][] {
+  if (section === 'Quant' || section === 'VARC' || section === 'DILR') return Object.entries(SECTIONS[section as Section]) as [string, readonly string[]][]
+  return AREAS.map((a) => [a, SCHEMA[a]] as [string, readonly string[]])
+}
+
+export default function EditableTable({ rows, hasTimeData, onPatch, section, showSection }: { rows: Row[]; hasTimeData: boolean; onPatch: (id: number, p: Partial<QuestionRow>) => unknown; section?: string | null; showSection?: boolean }) {
+  const groups = topicGroups(section)
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[920px] text-[12px]">
@@ -78,6 +85,7 @@ export default function EditableTable({ rows, hasTimeData, onPatch }: { rows: Ro
           <tr className="border-b border-gray-200 text-left text-[11px] font-medium uppercase tracking-wide text-gray-400">
             <th className="px-2 py-2 w-10">Q</th>
             <th className="px-2 py-2">Question</th>
+            {showSection && <th className="px-2 py-2 w-16">Section</th>}
             <th className="px-2 py-2 w-52">Topic</th>
             <th className="px-2 py-2 w-40">Your answer</th>
             <th className="px-2 py-2 w-40">Correct answer</th>
@@ -99,11 +107,14 @@ export default function EditableTable({ rows, hasTimeData, onPatch }: { rows: Ro
                 <td className="px-2 py-1.5 text-gray-700">
                   <div className="line-clamp-2 max-w-[22rem]" title={r.text}>{r.text}</div>
                 </td>
+                {showSection && <td className="px-2 py-1.5 text-[11px] font-medium text-gray-500">{sectionOf(r.topic)}</td>}
                 <td className="px-2 py-1.5">
                   <SelectCell label={`Q${r.q_no} topic`} value={r.topic} onSave={(v) => onPatch(r.id, { topic: v })}>
-                    {AREAS.map((a) => (
+                    {/* Keep a topic from another section selectable if a row already has one. */}
+                    {!groups.some(([, ts]) => ts.includes(r.topic)) && <option value={r.topic}>{r.topic}</option>}
+                    {groups.map(([a, ts]) => (
                       <optgroup key={a} label={a}>
-                        {SCHEMA[a].map((t) => <option key={t} value={t}>{t}</option>)}
+                        {ts.map((t) => <option key={t} value={t}>{t}</option>)}
                       </optgroup>
                     ))}
                   </SelectCell>

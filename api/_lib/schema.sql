@@ -195,3 +195,9 @@ ALTER TABLE mock_uploads ADD COLUMN IF NOT EXISTS result_link TEXT;   -- where C
 DO $$ BEGIN
   ALTER TABLE mock_uploads ADD CONSTRAINT mock_uploads_kind_chk CHECK (kind IN ('mock', 'assignment', 'notes'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Full-length (3-section) mocks (safe to re-run)
+ALTER TABLE mocks DROP CONSTRAINT IF EXISTS mocks_section_check;
+ALTER TABLE mocks ADD CONSTRAINT mocks_section_check CHECK (section IN ('Quant', 'VARC', 'DILR', 'Full'));
+ALTER TABLE mock_uploads DROP CONSTRAINT IF EXISTS mock_uploads_section_check;
+ALTER TABLE mock_uploads ADD CONSTRAINT mock_uploads_section_check CHECK (section IN ('Quant', 'VARC', 'DILR', 'Full'));
