@@ -164,3 +164,11 @@ scripts/        migrate, seed, local dev server; neon-ws-preload (sandbox-only t
 neon.ts         Neon services for this project (Postgres only)
 tests/          analysis unit tests
 ```
+
+## Study insights (no AI, plain rules in `shared/insights.ts`)
+- **Streak & heatmap** (Home): counted from card reviews, answered questions, saved mocks and notes. Daily goal: 10 actions.
+- **Est. CAT percentile band** (Mocks, mock page): rough, from past CAT score-vs-percentile cut-offs; set a target percentile next to it.
+- **A/B/C trend** (Mocks), **speed vs accuracy quadrants** (mock page).
+- **Pre-mock cheat sheet** at `/cheatsheet` (Print / Save PDF).
+- **Stubborn** badge: a mistake or flashcard missed 3+ times.
+- **Ctrl+K / ⌘K**: jump to any topic, mock or action.
