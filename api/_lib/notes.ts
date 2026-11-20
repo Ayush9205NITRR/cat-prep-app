@@ -111,7 +111,8 @@ export const deleteCard = async (userId: number, id: number) =>
 export async function dueCards(userId: number, topic?: string) {
   return q(
     `SELECT f.id, f.note_id, f.front, f.back, f.streak, to_char(f.due_on, 'YYYY-MM-DD') AS due_on, f.reviews, n.title, n.topic,
-       n.kind, n.fix_row_id, (SELECT mock_id FROM questions WHERE id = n.fix_row_id) AS fix_mock_id
+       n.kind, n.fix_row_id, (SELECT mock_id FROM questions WHERE id = n.fix_row_id) AS fix_mock_id,
+       (SELECT count(*)::int FROM card_reviews cr WHERE cr.card_id = f.id AND cr.grade = 'again') AS lapses
      FROM flashcards f JOIN notes n ON n.id = f.note_id
      WHERE f.user_id = $1 AND f.due_on <= ${TODAY} AND ($2::text IS NULL OR n.topic = $2) ORDER BY f.due_on, f.id`,
     [userId, topic ?? null],
@@ -128,6 +129,7 @@ export async function reviewCard(userId: number, id: number, grade: Grade) {
     `UPDATE flashcards SET streak = $3, due_on = ${TODAY} + $4::int, reviews = reviews + 1 WHERE id = $1 AND user_id = $2 RETURNING ${C_COLS}`,
     [id, userId, s.streak, s.dueInDays],
   )
+  await q('INSERT INTO card_reviews (user_id, card_id, grade) VALUES ($1,$2,$3)', [userId, id, grade])
   return { card, due_in_days: s.dueInDays }
 }
 

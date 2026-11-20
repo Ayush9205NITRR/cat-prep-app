@@ -9,6 +9,8 @@ import ReportPanel from '../components/ReportPanel'
 import { topTopicsToDrill } from '../../shared/drill'
 import { Back, btnGhost, Card, ErrorNote, fmtSeconds as fmtS, inputCls, Loading } from '../ui'
 import { useMock } from '../useMock'
+import Quadrants from '../components/Quadrants'
+import { PercentileBand, TargetPicker, useTarget } from '../components/Percentile'
 
 function MetaInput({ value, onSave, type = 'text', className = '' }: { value: string; onSave: (v: string) => void; type?: string; className?: string }) {
   const [v, setV] = useState(value)
@@ -43,6 +45,7 @@ export default function MockPage() {
   const { data, error, saving, patchRow, patchMock } = useMock(id)
   const nav = useNavigate()
   const report = useMemo(() => data && analyse(data.rows, data.mock.has_time_data), [data])
+  const [target, setTarget] = useTarget()
   const breakdown = useMemo(() => (data ? sectionBreakdown(data.rows, data.mock.has_time_data) : []), [data])
   const [tableOpen, setTableOpen] = useState(false)
   const [only, setOnly] = useState<string>('All') // section filter for the questions table
@@ -112,6 +115,14 @@ export default function MockPage() {
           </Card>
         )
       })()}
+
+      {mock.source === 'mock' && mock.section && (
+        <div className="space-y-2">
+          <PercentileBand score={report.score} reachable={report.reachable_score} max={report.max_score} section={mock.section} target={target} />
+          <div className="flex justify-end"><TargetPicker target={target} onSave={setTarget} /></div>
+        </div>
+      )}
+      <Quadrants rows={rows} mockId={id} hasTimeData={mock.has_time_data} />
 
       <ReportPanel report={report} mockId={id} />
 

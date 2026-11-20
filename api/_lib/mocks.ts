@@ -72,7 +72,7 @@ export async function listMocks(userId: number) {
   )
   return mocks.map((m) => {
     const r = analyse(rows.filter((x) => x.mock_id === m.id), m.has_time_data)
-    return { ...m, questions: r.counts.total, score: r.score, reachable_score: r.reachable_score, max_score: r.max_score }
+    return { ...m, questions: r.counts.total, score: r.score, reachable_score: r.reachable_score, max_score: r.max_score, abc: { A: r.abc.A, B: r.abc.B, C: r.abc.C } }
   })
 }
 

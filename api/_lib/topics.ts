@@ -1,3 +1,4 @@
+import { isStubborn, streakStats } from '../../shared/insights'
 // FIXES round 1: topic home, mistakes, fix notes, tests and retests.
 import { z } from 'zod'
 import { abcOf, analyse, bucketOf, type Abc } from '../../shared/analysis'
@@ -53,6 +54,7 @@ export async function topicsSummary(userId: number) {
         notes: get(notes, t), questions: get(questions, t), due: get(due, t),
         open: ms.filter((m) => m.status !== 'Fixed').length, fixed: ms.filter((m) => m.status === 'Fixed').length,
         repeated: ms.filter((m) => m.status === 'Repeated').length,
+        stubborn: ms.filter((m) => m.status !== 'Fixed' && isStubborn({ missed: m.times_wrong })).length,
         last_test: tests.find((x) => x.topic === t)?.last ?? null,
       }]
     }),
@@ -81,7 +83,7 @@ export async function topicPage(userId: number, topic: string) {
 function slimMistake(m: Mistake & { fix: FixNote | null }) {
   const r = m.row
   return {
-    status: m.status, error: m.error, times_wrong: m.times_wrong, times_fixed: m.times_fixed,
+    status: m.status, error: m.error, times_wrong: m.times_wrong, stubborn: isStubborn({ missed: m.times_wrong }), times_fixed: m.times_fixed,
     row_id: r.id, mock_id: r.mock_id, mock_name: r.mock_name, text: r.text, options: r.options,
     chosen_index: r.chosen_index, correct_index: r.correct_index, seconds: r.seconds, ideal_seconds: r.ideal_seconds,
     over_time: bucketOf(r, r.has_time_data) === 'over_time',
@@ -230,6 +232,35 @@ export async function retestOutcome(userId: number, mockId: number) {
   return { retested: rows.length, fixed, still_open: rows.length - fixed }
 }
 
+// ---------- Study activity per day (streak + heatmap), from timestamps already saved ----------
+// One action = a flashcard grade, an answered practice question, an answered test/retest question,
+// a mock saved, or a note saved. Last 400 days (enough for the best streak).
+export async function activityByDay(userId: number): Promise<Record<string, number>> {
+  const day = (col: string) => `to_char((${col} AT TIME ZONE '${CONFIG.TIME_ZONE}')::date, 'YYYY-MM-DD')`
+  const since = `now() - interval '400 days'`
+  const rows = await q<{ d: string; n: number }>(
+    `SELECT d, sum(n)::int AS n FROM (
+       SELECT ${day('created_at')} AS d, count(*) AS n FROM card_reviews WHERE user_id = $1 AND created_at > ${since} GROUP BY 1
+       UNION ALL SELECT ${day('created_at')}, count(*) FROM attempts WHERE user_id = $1 AND created_at > ${since} GROUP BY 1
+       UNION ALL SELECT ${day('m.created_at')}, count(qn.id) FILTER (WHERE qn.chosen_index IS NOT NULL OR m.source = 'mock') / CASE WHEN m.source = 'mock' THEN greatest(count(qn.id), 1) ELSE 1 END
+                 FROM mocks m LEFT JOIN questions qn ON qn.mock_id = m.id WHERE m.user_id = $1 AND m.created_at > ${since} GROUP BY m.id, 1
+       UNION ALL SELECT ${day('created_at')}, count(*) FROM notes WHERE user_id = $1 AND created_at > ${since} GROUP BY 1
+     ) x GROUP BY d`, [userId])
+  return Object.fromEntries(rows.map((r) => [r.d, r.n]))
+}
+
+// ---------- Pre-mock cheat sheet: concept summaries + formulas + stubborn/repeated mistakes ----------
+export async function cheatSheet(userId: number) {
+  const [notes, mistakes] = await Promise.all([
+    q(`SELECT id, topic, title, summary, formulas FROM notes WHERE user_id = $1 AND kind IN ('summary', 'text') AND (summary <> '' OR formulas <> '[]'::jsonb) ORDER BY topic, id`, [userId]),
+    mistakesWithFixes(userId),
+  ])
+  const repeated = mistakes.filter((m) => m.times_wrong >= 2 || m.status === 'Repeated')
+    .sort((a, b) => b.times_wrong - a.times_wrong)
+    .slice(0, 40).map((m) => ({ ...slimMistake(m), topic: m.topic, stubborn: isStubborn({ missed: m.times_wrong }) }))
+  return { notes: notes.map((n: any) => ({ ...n, section: sectionOf(n.topic) })), mistakes: repeated.map((m) => ({ ...m, section: sectionOf(m.topic) })) }
+}
+
 // ---------- Home dashboard: one call ----------
 export async function homeData(userId: number) {
   const [[u], summary, mocks] = await Promise.all([
@@ -243,7 +274,7 @@ export async function homeData(userId: number) {
   // Most active / weakest: open mistakes (repeats count double), then due cards.
   const active = topics
     .filter(([, t]) => t.open || t.due)
-    .map(([topic, t]) => ({ topic, section: sectionOf(topic), open: t.open, repeated: t.repeated, fixed: t.fixed, due: t.due }))
+    .map(([topic, t]) => ({ topic, section: sectionOf(topic), open: t.open, repeated: t.repeated, stubborn: t.stubborn, fixed: t.fixed, due: t.due }))
     .sort((a, b) => b.open + b.repeated - (a.open + a.repeated) || b.due - a.due)
     .slice(0, 8)
   const recent = []
@@ -258,7 +289,9 @@ export async function homeData(userId: number) {
   // Today's Session: the weakest topic that has saved questions to drill.
   const drillable = topics.filter(([, t]) => t.questions > 0)
     .sort(([, a], [, b]) => b.open + b.repeated - (a.open + a.repeated) || b.due - a.due || b.questions - a.questions)[0]
+  const activity = await activityByDay(userId)
   return {
+    streak: streakStats(activity, todayStr()),
     mocks_count: counts.mocks, tests_count: counts.tests,
     session: { due: sum('due'), open: sum('open'), weakest: drillable ? { topic: drillable[0], questions: drillable[1].questions } : null },
     exam_date: u?.exam_date ?? null, days_left: u?.days ?? null,

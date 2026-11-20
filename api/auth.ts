@@ -25,11 +25,12 @@ export default route(async (req, res) => {
     const u = await requireUser(req, res)
     if (!u) return
     if (req.method === 'POST') {
-      const b = z.object({ exam_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() }).safeParse(req.body)
-      if (!b.success) return fail(res, 400, 'Pick a date')
-      await q('UPDATE users SET exam_date = $2 WHERE id = $1', [u.id, b.data.exam_date])
+      const b = z.object({ exam_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), target_percentile: z.number().min(1).max(100).nullable() }).partial().safeParse(req.body)
+      if (!b.success) return fail(res, 400, 'Pick a date, or a target between 1 and 100')
+      if (b.data.exam_date !== undefined) await q('UPDATE users SET exam_date = $2 WHERE id = $1', [u.id, b.data.exam_date])
+      if (b.data.target_percentile !== undefined) await q('UPDATE users SET target_percentile = $2 WHERE id = $1', [u.id, b.data.target_percentile])
     }
-    const [r] = await q<{ exam_date: string | null }>("SELECT to_char(exam_date, 'YYYY-MM-DD') AS exam_date FROM users WHERE id = $1", [u.id])
+    const [r] = await q<{ exam_date: string | null }>("SELECT to_char(exam_date, 'YYYY-MM-DD') AS exam_date, target_percentile::float AS target_percentile FROM users WHERE id = $1", [u.id])
     res.status(200).json(r)
     return
   }

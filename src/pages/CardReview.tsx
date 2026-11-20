@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { GRADES, intervalLabel, scheduleGrade, type Grade } from '../../shared/flashcards'
+import { isStubborn } from '../../shared/insights'
 import { api, type DueCard } from '../api'
 import SessionBar from '../components/SessionBar'
 import { advanceSession } from '../session'
@@ -21,6 +22,8 @@ export default function CardReview() {
   const topic = params.get('topic') ?? undefined
   const limit = Number(params.get('limit')) || undefined
   const inSession = params.get('session') === '1'
+  const onlyStubborn = params.get('stubborn') === '1'
+  const [stubbornDue, setStubbornDue] = useState(0)
   const [queue, setQueue] = useState<DueCard[] | null>(null)
   const [total, setTotal] = useState(0)
   const [done, setDone] = useState(0)
@@ -31,8 +34,8 @@ export default function CardReview() {
   const [next, setNext] = useState(Infinity)
   const [error, setError] = useState('')
   useEffect(() => {
-    api.dueCards(topic).then((r) => { const cards = limit ? r.cards.slice(0, limit) : r.cards; setQueue(cards); setTotal(cards.length) }, (e) => setError(e.message))
-  }, [topic, limit])
+    api.dueCards(topic).then((r) => { setStubbornDue(r.cards.filter((x) => isStubborn({ missed: x.lapses })).length); const pool = onlyStubborn ? r.cards.filter((x) => isStubborn({ missed: x.lapses })) : r.cards; const cards = limit ? pool.slice(0, limit) : pool; setQueue(cards); setTotal(cards.length) }, (e) => setError(e.message))
+  }, [topic, limit, onlyStubborn])
 
   const c = queue?.[0]
   const grade = useCallback(async (g: Grade) => {
@@ -95,6 +98,12 @@ export default function CardReview() {
           <span className="text-[12.5px] font-medium text-gray-600">{topic ? '' : 'All topics · '}{Math.min(done + 1, total)} of {total}</span>
         </div>
       )}
+      {!inSession && (stubbornDue > 0 || onlyStubborn) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] text-rose-900">
+          <span>🔁 <b>{stubbornDue} stubborn card{stubbornDue === 1 ? '' : 's'}</b> (missed 3+ times). Tip: open the source note and rewrite the card in your own words.</span>
+          <Link className="ml-auto rounded-md border border-rose-200 bg-white px-2 py-0.5 font-medium" to={onlyStubborn ? `/flashcards${topic ? `?topic=${encodeURIComponent(topic)}` : ''}` : `/flashcards?stubborn=1${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`}>{onlyStubborn ? 'Show all due' : 'Review only stubborn'}</Link>
+        </div>
+      )}
       <div className="h-1.5 overflow-hidden rounded-full bg-gray-200" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
         <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
       </div>
@@ -104,6 +113,7 @@ export default function CardReview() {
           <span>
             <Link to={`/topic/${encodeURIComponent(c.topic)}`} className="rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 hover:underline">{c.topic}</Link>
             <span className="ml-2">{c.kind === 'fix' ? 'Fix note' : c.title}</span>
+            {isStubborn({ missed: c.lapses }) && <Link to={`/notes/${c.note_id}`} className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 font-semibold text-rose-800" title={`Missed ${c.lapses}×. Re-read the note before guessing again.`}>🔁 Stubborn · re-read note</Link>}
           </span>
           {c.kind === 'fix' && c.fix_mock_id && (
             <Link className="rounded-full bg-orange-50 px-2 py-0.5 font-medium text-orange-700 hover:underline" to={`/mocks/${c.fix_mock_id}/review?row=${c.fix_row_id}`}>🛠️ From your mistake — see the question →</Link>

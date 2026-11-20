@@ -201,3 +201,15 @@ ALTER TABLE mocks DROP CONSTRAINT IF EXISTS mocks_section_check;
 ALTER TABLE mocks ADD CONSTRAINT mocks_section_check CHECK (section IN ('Quant', 'VARC', 'DILR', 'Full'));
 ALTER TABLE mock_uploads DROP CONSTRAINT IF EXISTS mock_uploads_section_check;
 ALTER TABLE mock_uploads ADD CONSTRAINT mock_uploads_section_check CHECK (section IN ('Quant', 'VARC', 'DILR', 'Full'));
+
+-- Study insights (streak, leech detector, target percentile). Idempotent; touches no existing rows.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS target_percentile NUMERIC(4,1);
+CREATE TABLE IF NOT EXISTS card_reviews (                                             -- one row per flashcard grade
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  card_id     INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
+  grade       TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS card_reviews_user_idx ON card_reviews(user_id, created_at);
+CREATE INDEX IF NOT EXISTS card_reviews_card_idx ON card_reviews(card_id);

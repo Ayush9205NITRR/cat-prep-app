@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { api, type HomeData } from '../api'
 import { planSession, SESSION_MINUTES } from '../../shared/session'
 import { BLOCK_LABEL, startSession } from '../session'
+import StreakCard from '../components/StreakCard'
 import { useNavigate } from 'react-router-dom'
 import { btnGhost, btnPrimary, Card, ErrorNote, Loading, PageHeader } from '../ui'
 
@@ -77,6 +78,7 @@ export default function Home() {
       <PageHeader title="Today" sub="Your study hub: what is due, what is weak, and how your mocks are going." />
 
       <SessionCard have={d.session} />
+      <StreakCard s={d.streak} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tile label="Days to CAT" value={d.days_left === null ? '—' : d.days_left < 0 ? 'Done' : d.days_left}
@@ -103,6 +105,7 @@ export default function Home() {
                   <span className="min-w-0"><span className="block truncate text-[13px] font-medium text-gray-900">{t.topic}</span><span className="text-[11px] text-gray-400">{t.section}</span></span>
                   <span className="flex shrink-0 gap-1.5 text-[11px] font-medium">
                     {t.open > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">{t.open} open</span>}
+                    {t.stubborn > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-800" title="Missed 3+ times: revise the concept, don’t just retry">🔁 {t.stubborn} stubborn</span>}
                     {t.repeated > 0 && <span className="rounded-full bg-orange-50 px-2 py-0.5 text-orange-700">{t.repeated} repeat</span>}
                     {t.due > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{t.due} due</span>}
                   </span>
@@ -131,6 +134,7 @@ export default function Home() {
 
       <div className="flex flex-wrap gap-2">
         {(['Quant', 'VARC', 'DILR'] as const).map((s) => <Link key={s} to={`/section/${s}`} className={btnGhost}>Open {s}</Link>)}
+        <Link to="/cheatsheet" className={btnGhost}>📄 Pre-mock cheat sheet</Link>
       </div>
     </div>
   )

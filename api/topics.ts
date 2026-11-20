@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { SECTION_NAMES, topicsIn, TOPICS } from '../shared/topics'
 import { requireUser } from './_lib/auth'
 import { fail, one, route } from './_lib/http'
-import { homeData, pickQuestions, prepareRetest, questionsForSolving, retestOutcome, submitTest, SubmitTest, topicPage, topicsSummary } from './_lib/topics'
+import { cheatSheet, homeData, pickQuestions, prepareRetest, questionsForSolving, retestOutcome, submitTest, SubmitTest, topicPage, topicsSummary } from './_lib/topics'
 
 // GET  ?view=summary                              → per topic: notes, questions, open/fixed mistakes, last test, due cards
 // GET  ?view=topic&topic=…                        → the topic page (mistakes, notes, questions, flashcards)
@@ -19,6 +19,7 @@ export default route(async (req, res) => {
   if (topic && !TOPICS.includes(topic as any)) return fail(res, 400, 'Unknown topic')
 
   if (req.method === 'GET' && view === 'home') return ok(await homeData(u.id))
+  if (req.method === 'GET' && view === 'cheatsheet') return ok(await cheatSheet(u.id))
   if (req.method === 'GET' && view === 'summary') return ok({ topics: await topicsSummary(u.id) })
   if (req.method === 'GET' && view === 'topic') return topic ? ok(await topicPage(u.id, topic)) : fail(res, 400, 'Pick a topic')
 

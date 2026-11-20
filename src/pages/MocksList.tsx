@@ -3,13 +3,16 @@ import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { api, type MockSummary } from '../api'
 import MockUpload from '../components/MockUpload'
-import { Empty, ErrorNote, Loading, PageHeader } from '../ui'
+import { Card, Empty, ErrorNote, Loading, PageHeader } from '../ui'
+import AbcTrend from '../components/AbcTrend'
+import { PercentileBand, TargetPicker, useTarget } from '../components/Percentile'
 
 export default function MocksList() {
   const [mocks, setMocks] = useState<MockSummary[] | null>(null)
   const [error, setError] = useState('')
   const [params, setParams] = useSearchParams()
   const tab = params.get('section') ?? 'All'
+  const [target, setTarget] = useTarget()
   useEffect(() => {
     api.mocks().then((r) => setMocks(r.mocks), (e) => setError(e.message))
   }, [])
@@ -20,6 +23,23 @@ export default function MocksList() {
     <div className="space-y-6">
       <PageHeader title="Mocks & Tests" sub="Mocks you upload to Claude (“Analyse my mock”) and tests you take in the app. Open one for the score, buckets and review." />
       <MockUpload />
+      {(() => {
+        const real = mocks.filter((m) => m.source === 'mock' && m.section)
+        if (!real.length) return null
+        const last = real[0] // newest first
+        return (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[12px] text-gray-500">Latest mock: <b className="text-gray-800">{last.name}</b></span>
+                <TargetPicker target={target} onSave={setTarget} />
+              </div>
+              <PercentileBand score={last.score} reachable={last.reachable_score} max={last.max_score} section={last.section} target={target} />
+            </div>
+            <Card title="A / B / C mistakes across mocks" aside="Watch C (careless) shrink"><AbcTrend mocks={mocks} /></Card>
+          </div>
+        )
+      })()}
       <div className="flex w-fit gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
         {['All', 'Full', 'Quant', 'VARC', 'DILR'].map((t) => (
           <button key={t} onClick={() => setParams(t === 'All' ? {} : { section: t })} className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium ${tab === t ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{t}</button>
@@ -39,7 +59,7 @@ export default function MocksList() {
                   <span className="text-[14px] font-medium text-gray-900">{m.name}</span>
                 </div>
                 <div className="text-[12px] text-gray-500">
-                  {m.taken_on} · {m.questions} question{m.questions === 1 ? '' : 's'}{m.has_time_data ? '' : ' · no time data'}
+                  {m.taken_on}{m.source === 'mock' && m.section ? <> · <PercentileBand compact score={m.score} reachable={m.reachable_score} max={m.max_score} section={m.section} /></> : null} · {m.questions} question{m.questions === 1 ? '' : 's'}{m.has_time_data ? '' : ' · no time data'}
                 </div>
               </div>
               <div className="flex gap-6 text-right">

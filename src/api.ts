@@ -2,7 +2,7 @@ import type { QuestionRow } from '../shared/analysis'
 
 export interface User { id: number; username: string }
 export interface MockMeta { id: number; name: string; taken_on: string; has_time_data: boolean; section: string | null; source: 'mock' | 'test' | 'retest'; topic: string | null; scope: string | null }
-export interface MockSummary extends MockMeta { questions: number; score: number; reachable_score: number; max_score: number }
+export interface MockSummary extends MockMeta { questions: number; score: number; reachable_score: number; max_score: number; abc: { A: number; B: number; C: number } }
 export interface MockData { mock: MockMeta; rows: (QuestionRow & { id: number })[] }
 
 export interface PracticeQuestion {
@@ -33,7 +33,7 @@ export interface Card { id: number; note_id: number; front: string; back: string
 
 export interface TopicStats { notes: number; questions: number; due: number; open: number; fixed: number; repeated: number; last_test: string | null }
 export interface MistakeItem {
-  status: 'Open' | 'Fixed' | 'Repeated'; error: 'A' | 'B' | 'C' | 'not reviewed' | null; times_wrong: number; times_fixed: number
+  status: 'Open' | 'Fixed' | 'Repeated'; error: 'A' | 'B' | 'C' | 'not reviewed' | null; times_wrong: number; times_fixed: number; stubborn: boolean
   row_id: number; mock_id: number; mock_name: string; text: string; options: string[]; chosen_index: number | null; correct_index: number
   seconds: number | null; ideal_seconds: number; over_time: boolean; fix: { note_id: number; title: string; summary: string } | null
 }
@@ -41,15 +41,21 @@ export interface TopicData {
   topic: string; section: string; mistakes: MistakeItem[]; notes: NoteSummary[]; flashcards_due: number; retestable: number
   questions: { id: number; difficulty: string; text: string; source: string; answered: number }[]
 }
-export type DueCard = Card & { title: string; topic: string; kind: string; fix_row_id: number | null; fix_mock_id: number | null }
+export type DueCard = Card & { title: string; topic: string; kind: string; fix_row_id: number | null; fix_mock_id: number | null; lapses: number }
 
 export interface MockUploadItem { id: number; kind: 'mock' | 'assignment' | 'notes'; mime: string; result_link: string | null; name: string; section: string | null; pages: number; chars: number | null; pdf_kept: boolean; status: 'new' | 'saved'; mock_id: number | null }
 
+export interface Streak { current: number; best: number; today: number; goal: number; active_days: number; grid: { date: string; count: number }[] }
+export interface CheatSheet {
+  notes: { id: number; topic: string; section: string; title: string; summary: string; formulas: string[] }[]
+  mistakes: (MistakeItem & { topic: string; section: string })[]
+}
 export interface HomeData {
+  streak: Streak
   mocks_count: number; tests_count: number
   session: { due: number; open: number; weakest: { topic: string; questions: number } | null }
   exam_date: string | null; days_left: number | null; due_today: number; open_mistakes: number; fixed_mistakes: number; repeated: number
-  active_topics: { topic: string; section: string; open: number; repeated: number; fixed: number; due: number }[]
+  active_topics: { topic: string; section: string; open: number; repeated: number; stubborn: number; fixed: number; due: number }[]
   recent_mocks: { id: number; name: string; taken_on: string; section: string | null; source: string; score: number; reachable: number; max: number }[]
 }
 
@@ -110,7 +116,9 @@ export const api = {
   noteVersions: (id: number) => call<{ versions: { id: number; title: string; summary: string; created_at: string }[] }>('GET', `/api/notes?view=versions&id=${id}`),
   restoreVersion: (id: number, version: number) => call<{ note: Note; cards: Card[]; files: NoteFile[] }>('POST', `/api/notes?view=restore&id=${id}&version=${version}`),
   setExamDate: (exam_date: string | null) => call<{ exam_date: string | null }>('POST', '/api/auth?action=profile', { exam_date }),
-  profile: () => call<{ exam_date: string | null }>('GET', '/api/auth?action=profile'),
+  profile: () => call<{ exam_date: string | null; target_percentile: number | null }>('GET', '/api/auth?action=profile'),
+  setTarget: (target_percentile: number | null) => call<{ target_percentile: number | null }>('POST', '/api/auth?action=profile', { target_percentile }),
+  cheatSheet: () => call<CheatSheet>('GET', '/api/topics?view=cheatsheet'),
   deleteCard: (id: number) => call('DELETE', `/api/notes?view=card&id=${id}`),
   createNote: (x: { topic: string; title?: string; content?: string; kind?: 'text'; file?: { name: string; mime: string; base64: string } }) =>
     call<{ id: number; kind: string }>('POST', '/api/notes?view=create', x),

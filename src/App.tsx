@@ -12,6 +12,8 @@ import SectionPage from './pages/SectionPage'
 import Home from './pages/Home'
 import TopicPage from './pages/TopicPage'
 import SessionDone from './pages/SessionDone'
+import CheatSheet from './pages/CheatSheet'
+import CommandPalette from './components/CommandPalette'
 import TestPage from './pages/TestPage'
 import QuestionEdit from './pages/QuestionEdit'
 import Notes from './pages/Notes'
@@ -57,7 +59,12 @@ export default function App() {
             <NavLink to="/section/DILR" className={nav}>DILR</NavLink>
             <NavLink to="/mocks" className={nav}>Mocks &amp; Tests</NavLink>
             <NavLink to="/flashcards" className={nav}>Flashcards</NavLink>
+            <NavLink to="/cheatsheet" className={nav}>Cheat sheet</NavLink>
             <NavLink to="/connect" className={nav}>Connect Claude</NavLink>
+            <button onClick={() => window.dispatchEvent(new Event('open-palette'))} title="Quick jump (⌘K / Ctrl+K)"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[12px] text-gray-500 hover:border-gray-400 hover:text-gray-900">
+              Search <kbd className="rounded bg-gray-100 px-1 font-sans text-[10.5px]">{/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'}</kbd>
+            </button>
             <button
               className="ml-1 flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 hover:bg-gray-900/5 hover:text-gray-900"
               onClick={() => api.logout().finally(() => setUser(null))}
@@ -69,6 +76,7 @@ export default function App() {
           </nav>
         </div>
       </header>
+      <CommandPalette />
       <main className="mx-auto max-w-6xl px-4 py-7">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -78,6 +86,7 @@ export default function App() {
           <Route path="/topic/:topic" element={<TopicPage />} />
           <Route path="/test" element={<TestPage />} />
           <Route path="/session/done" element={<SessionDone />} />
+          <Route path="/cheatsheet" element={<CheatSheet />} />
           <Route path="/mocks/:id" element={<MockPage />} />
           <Route path="/mocks/:id/review" element={<Review />} />
           <Route path="/mocks/:id/resolve" element={<Resolve />} />

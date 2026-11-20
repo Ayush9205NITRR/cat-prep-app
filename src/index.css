@@ -31,3 +31,12 @@ input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
 .md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 13px; }
 .md th, .md td { border: 1px solid #e5e7eb; padding: 0.4em 0.7em; text-align: left; vertical-align: top; }
 .md th { background: #f9fafb; font-weight: 600; }
+
+/* Print / Save PDF: only the page content, no nav or buttons, cards don't split. */
+@media print {
+  header, .no-print { display: none !important; }
+  body { background: #fff !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  .print-avoid-break { break-inside: avoid; }
+  a { color: inherit !important; text-decoration: none !important; }
+}
